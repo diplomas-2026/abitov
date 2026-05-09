@@ -1,10 +1,12 @@
 package com.github.danbel.abitovapi.service;
 
 import com.github.danbel.abitovapi.domain.AppUser;
+import com.github.danbel.abitovapi.domain.Enrollment;
 import com.github.danbel.abitovapi.domain.Role;
 import com.github.danbel.abitovapi.dto.AuthDtos;
 import com.github.danbel.abitovapi.dto.UserDtos;
 import com.github.danbel.abitovapi.repository.AppUserRepository;
+import com.github.danbel.abitovapi.repository.EnrollmentRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -22,10 +24,12 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class UserService {
 
     private final AppUserRepository userRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(AppUserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(AppUserRepository userRepository, EnrollmentRepository enrollmentRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.enrollmentRepository = enrollmentRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -82,6 +86,17 @@ public class UserService {
 
     @Transactional
     public void delete(Long id) {
+        boolean linked = StreamSupport.stream(enrollmentRepository.findAll().spliterator(), false)
+            .anyMatch(enrollment ->
+                (enrollment.getClientId() != null && enrollment.getClientId().equals(id))
+                    || (enrollment.getTeacherId() != null && enrollment.getTeacherId().equals(id))
+            );
+        if (linked) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "Нельзя удалить пользователя, он связан с записями на обучение"
+            );
+        }
         userRepository.deleteById(id);
     }
 

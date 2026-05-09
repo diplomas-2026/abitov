@@ -1,6 +1,7 @@
 package com.github.danbel.abitovapi.service;
 
 import com.github.danbel.abitovapi.domain.Course;
+import com.github.danbel.abitovapi.domain.Enrollment;
 import com.github.danbel.abitovapi.dto.CourseDtos;
 import com.github.danbel.abitovapi.repository.CourseRepository;
 import com.github.danbel.abitovapi.repository.EnrollmentRepository;
@@ -67,6 +68,13 @@ public class CourseService {
 
     @Transactional
     public void delete(Long id) {
+        boolean linked = streamEnrollments().anyMatch(enrollment -> enrollment.getCourseId() != null && enrollment.getCourseId().equals(id));
+        if (linked) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "Нельзя удалить курс, к нему уже привязаны записи на обучение"
+            );
+        }
         courseRepository.deleteById(id);
     }
 
@@ -104,5 +112,9 @@ public class CourseService {
 
     private java.util.stream.Stream<Course> streamCourses() {
         return StreamSupport.stream(courseRepository.findAll().spliterator(), false);
+    }
+
+    private java.util.stream.Stream<Enrollment> streamEnrollments() {
+        return StreamSupport.stream(enrollmentRepository.findAll().spliterator(), false);
     }
 }

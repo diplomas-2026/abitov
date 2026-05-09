@@ -25,5 +25,5 @@ afterEach(() => {
 
 test('renders login screen', async () => {
   render(<App />);
-  expect(await screen.findByText(/Система ведения клиентской базы/i)).toBeInTheDocument();
+  expect(await screen.findByText(/вход в систему/i)).toBeInTheDocument();
 });

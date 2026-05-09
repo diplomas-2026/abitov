@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'https://abitov.danbel.ru/api';
 
 async function request(path, { method = 'GET', token, body } = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
