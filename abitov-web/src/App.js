@@ -1383,7 +1383,10 @@ function ProgramDetailPage() {
                       Проходной балл: {test.passScore} · Попыток: {test.attemptCount}
                     </Typography>
                   </Box>
-                  <Chip size="small" label={test.bestPassed ? `Лучший результат: ${test.bestScore}` : `Лучший результат: ${test.bestScore}`} variant="outlined" />
+                  <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="flex-end">
+                    <StatusChip test={test} />
+                    <Chip size="small" label={`Лучший результат: ${test.bestScore}`} variant="outlined" />
+                  </Stack>
                 </Stack>
               </Paper>
             ))
@@ -1963,6 +1966,38 @@ function TestsPage() {
           Найдено: {filteredTests.length} из {tests.length}
         </Typography>
 
+        <DetailSection title="Успешно пройденные" subtitle="Тесты, которые уже сданы">
+          <Stack spacing={2}>
+            {filteredTests.filter((item) => item.bestPassed).length === 0 ? (
+              <Alert severity="info">Пока нет успешно пройденных тестов.</Alert>
+            ) : (
+              filteredTests
+                .filter((item) => item.bestPassed)
+                .map((item) => (
+                  <Paper
+                    key={item.id}
+                    variant="outlined"
+                    sx={{ p: 2, cursor: 'pointer', borderColor: 'success.main', bgcolor: 'success.lightest', '&:hover': { borderColor: 'success.dark' } }}
+                    onClick={() => navigate(`/tests/${item.id}`)}
+                  >
+                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }}>{item.title}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {item.program?.title} · {item.lesson?.title}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="flex-end">
+                        <StatusChip test={item} />
+                        <Chip size="small" label={`Лучший результат: ${item.bestScore}`} color="success" variant="outlined" />
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                ))
+            )}
+          </Stack>
+        </DetailSection>
+
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
@@ -1993,7 +2028,10 @@ function TestsPage() {
                   <TableCell>{item.attemptCount}</TableCell>
                   <TableCell>{item.passScore}</TableCell>
                   <TableCell>
-                    <Chip size="small" label={item.active ? 'Активен' : 'Неактивен'} color={item.active ? 'success' : 'default'} variant="outlined" />
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                      <Chip size="small" label={item.active ? 'Активен' : 'Неактивен'} color={item.active ? 'success' : 'default'} variant="outlined" />
+                      <StatusChip test={item} />
+                    </Stack>
                   </TableCell>
                   {isManager && (
                     <TableCell align="right">
@@ -2102,7 +2140,15 @@ function TestDetailPage() {
           <DetailField label="Вопросов" value={test.questionCount} />
           <DetailField label="Попыток" value={test.attemptCount} />
           <DetailField label="Лучший результат" value={test.bestScore} />
-          <DetailField label="Статус" value={<Chip size="small" label={test.active ? 'Активен' : 'Неактивен'} color={test.active ? 'success' : 'default'} variant="outlined" />} />
+          <DetailField
+            label="Статус"
+            value={
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Chip size="small" label={test.active ? 'Активен' : 'Неактивен'} color={test.active ? 'success' : 'default'} variant="outlined" />
+                <StatusChip test={test} />
+              </Stack>
+            }
+          />
         </Grid>
       </DetailSection>
 
@@ -3804,6 +3850,28 @@ function compareDates(left, right) {
   const leftTime = left ? new Date(left).getTime() : 0;
   const rightTime = right ? new Date(right).getTime() : 0;
   return rightTime - leftTime;
+}
+
+function getTestProgressState(test) {
+  if (!test) {
+    return { label: 'Нет данных', color: 'default', variant: 'outlined' };
+  }
+
+  if (test.bestPassed) {
+    return { label: 'Успешно', color: 'success', variant: 'filled' };
+  }
+
+  const attemptsLeft = Number(test.maxAttempts || 0) - Number(test.attemptCount || 0);
+  if (attemptsLeft > 0) {
+    return { label: `Неуспешно, попыток осталось: ${attemptsLeft}`, color: 'warning', variant: 'outlined' };
+  }
+
+  return { label: 'Неуспешно, попытки закончились', color: 'error', variant: 'filled' };
+}
+
+function StatusChip({ test }) {
+  const state = getTestProgressState(test);
+  return <Chip size="small" label={state.label} color={state.color} variant={state.variant} />;
 }
 
 function safeParse(value) {
