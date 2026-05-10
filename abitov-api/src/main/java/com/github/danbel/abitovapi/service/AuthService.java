@@ -35,7 +35,8 @@ public class AuthService {
                     user.getId(),
                     fullName(user),
                     user.getEmail(),
-                    user.getRole()
+                    user.getRole(),
+                    user.getMaxContact()
                 );
             });
     }

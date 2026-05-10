@@ -44,6 +44,9 @@ public class Enrollment {
     @Column("notes")
     private String notes;
 
+    @Column("group_name")
+    private String groupName;
+
     @Column("created_at")
     private Instant createdAt;
 

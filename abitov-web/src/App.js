@@ -76,6 +76,7 @@ const emptyUserForm = {
   lastName: '',
   email: '',
   phone: '',
+  maxContact: '',
   password: '',
   role: 'CLIENT',
   active: true,
@@ -93,6 +94,7 @@ const emptyEnrollmentForm = {
   clientId: '',
   courseId: '',
   teacherId: '',
+  groupName: '',
   notes: '',
 };
 
@@ -694,6 +696,7 @@ function UsersPage() {
                 <TableCell>ФИО</TableCell>
                 <TableCell>Роль</TableCell>
                 <TableCell>Email</TableCell>
+                <TableCell>MAX</TableCell>
                 <TableCell>Статус</TableCell>
                 <TableCell>Создан</TableCell>
                 {isAdmin && <TableCell align="right">Действия</TableCell>}
@@ -710,6 +713,7 @@ function UsersPage() {
                   <TableCell>{item.fullName}</TableCell>
                   <TableCell>{item.role}</TableCell>
                   <TableCell>{item.email}</TableCell>
+                  <TableCell>{item.maxContact || '—'}</TableCell>
                   <TableCell>
                     <Chip size="small" label={item.active ? 'Активен' : 'Неактивен'} color={item.active ? 'success' : 'default'} variant="outlined" />
                   </TableCell>
@@ -754,6 +758,7 @@ function UserFormPage({ mode }) {
         lastName: existing.lastName || '',
         email: existing.email || '',
         phone: existing.phone || '',
+        maxContact: existing.maxContact || '',
         password: '',
         role: existing.role || 'CLIENT',
         active: existing.active ?? true,
@@ -772,6 +777,7 @@ function UserFormPage({ mode }) {
       const payload = {
         ...form,
         password: form.password || 'change-me-123',
+        maxContact: form.role === 'TEACHER' ? form.maxContact : '',
       };
       if (isEdit) {
         await api.updateUser(token, id, payload);
@@ -827,6 +833,17 @@ function UserFormPage({ mode }) {
                 onChange={(event) => setForm({ ...form, phone: event.target.value })}
               />
             </Grid>
+            {form.role === 'TEACHER' && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="MAX"
+                  fullWidth
+                  value={form.maxContact}
+                  onChange={(event) => setForm({ ...form, maxContact: event.target.value })}
+                  helperText="Контакт преподавателя в MAX"
+                />
+              </Grid>
+            )}
             <Grid item xs={12} md={6}>
               <TextField
                 label={isEdit ? 'Новый пароль' : 'Пароль'}
@@ -2804,6 +2821,10 @@ function EnrollmentsPage() {
                     <Typography variant="caption" color="text.secondary">Комментарий</Typography>
                     <Typography>{item.notes || 'Нет'}</Typography>
                   </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="caption" color="text.secondary">Группа</Typography>
+                    <Typography>{item.groupName || 'Не указана'}</Typography>
+                  </Grid>
                 </Grid>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {canEdit && (
@@ -2846,6 +2867,7 @@ function EnrollmentFormPage({ mode }) {
         clientId: String(existing.client?.id || ''),
         courseId: String(existing.course?.id || ''),
         teacherId: String(existing.teacher?.id || ''),
+        groupName: existing.groupName || '',
         notes: existing.notes || '',
       });
     }
@@ -2867,6 +2889,7 @@ function EnrollmentFormPage({ mode }) {
         clientId: Number(form.clientId),
         courseId: Number(form.courseId),
         teacherId: form.teacherId ? Number(form.teacherId) : null,
+        groupName: form.groupName,
         notes: form.notes,
       });
       await refreshWorkspace();
@@ -2936,6 +2959,18 @@ function EnrollmentFormPage({ mode }) {
                 fullWidth
                 value={form.notes}
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              />
+              <TextField
+                label="Группа"
+                fullWidth
+                value={form.groupName}
+                onChange={(event) => setForm({ ...form, groupName: event.target.value })}
+                disabled={isEdit}
+                helperText={
+                  isEdit
+                    ? 'Группа задаётся при создании записи и не изменяется на этой странице.'
+                    : 'Группа указывается при создании записи и используется для общей связи в MAX'
+                }
               />
               <Stack direction="row" spacing={2}>
                 <Button type="submit" variant="contained" disabled={busy}>
@@ -3031,6 +3066,15 @@ function EnrollmentFormPage({ mode }) {
                 fullWidth
                 value={form.notes}
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Группа"
+                fullWidth
+                value={form.groupName}
+                onChange={(event) => setForm({ ...form, groupName: event.target.value })}
+                helperText="Укажи общую группу для клиента и преподавателя в MAX"
               />
             </Grid>
           </Grid>
@@ -3264,6 +3308,7 @@ function UserDetailPage() {
           <DetailField label="Полное имя" value={selectedUser.fullName} />
           <DetailField label="Email" value={selectedUser.email} />
           <DetailField label="Телефон" value={selectedUser.phone || 'Не указан'} />
+          <DetailField label="MAX" value={selectedUser.maxContact || 'Не указан'} />
           <DetailField label="Роль" value={selectedUser.role} />
           <DetailField
             label="Статус"
@@ -3299,6 +3344,9 @@ function UserDetailPage() {
                     <Typography sx={{ fontWeight: 700 }}>{item.course?.title}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Группа: {item.groupName || 'Не указана'}
                     </Typography>
                   </Box>
                   <Chip size="small" label={formatDate(item.nextDueAt)} variant="outlined" />
@@ -3431,6 +3479,9 @@ function CourseDetailPage() {
                     <Typography variant="body2" color="text.secondary">
                       {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
                     </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Группа: {item.groupName || 'Не указана'}
+                    </Typography>
                   </Box>
                   <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
                     <Typography variant="body2" color="text.secondary">
@@ -3512,6 +3563,7 @@ function EnrollmentDetailPage() {
           <DetailField label="Email клиента" value={selectedEnrollment.client?.email} />
           <DetailField label="Курс" value={selectedEnrollment.course?.title} />
           <DetailField label="Преподаватель" value={selectedEnrollment.teacher?.fullName || 'Не назначен'} />
+          <DetailField label="Группа" value={selectedEnrollment.groupName || 'Не указана'} />
           <DetailField label="Дата записи" value={formatDate(selectedEnrollment.enrolledAt)} />
           <DetailField label="Дата завершения" value={formatDate(selectedEnrollment.completedAt)} />
           <DetailField label="Следующее обучение" value={formatDate(selectedEnrollment.nextDueAt)} />
@@ -3623,6 +3675,7 @@ function TeacherDetailPage() {
           <DetailField label="ID" value={selectedTeacher.id} />
           <DetailField label="ФИО" value={selectedTeacher.fullName} />
           <DetailField label="Email" value={selectedTeacher.email} />
+          <DetailField label="MAX" value={selectedTeacher.maxContact || 'Не указан'} />
           <DetailField label="Роль" value={selectedTeacher.role} />
         </Grid>
       </DetailSection>
@@ -3648,6 +3701,9 @@ function TeacherDetailPage() {
                     <Typography sx={{ fontWeight: 700 }}>{item.client?.fullName}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       {item.course?.title} · {item.status}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Группа: {item.groupName || 'Не указана'}
                     </Typography>
                   </Box>
                   <Typography color="text.secondary">{formatDate(item.nextDueAt)}</Typography>

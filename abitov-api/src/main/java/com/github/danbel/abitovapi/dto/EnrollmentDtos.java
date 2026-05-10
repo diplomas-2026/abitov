@@ -12,6 +12,7 @@ public final class EnrollmentDtos {
         @NotNull Long clientId,
         @NotNull Long courseId,
         Long teacherId,
+        String groupName,
         String notes
     ) {
     }
@@ -30,6 +31,7 @@ public final class EnrollmentDtos {
         String completedAt,
         String nextDueAt,
         EnrollmentStatus status,
+        String groupName,
         String notes
     ) {
     }

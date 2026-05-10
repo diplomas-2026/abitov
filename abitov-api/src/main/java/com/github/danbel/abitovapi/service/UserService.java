@@ -57,6 +57,7 @@ public class UserService {
             .lastName(request.lastName())
             .email(request.email().toLowerCase(Locale.ROOT))
             .phone(request.phone())
+            .maxContact(request.maxContact())
             .passwordHash(passwordEncoder.encode(request.password()))
             .role(request.role())
             .active(request.active())
@@ -78,6 +79,7 @@ public class UserService {
         existing.setLastName(request.lastName());
         existing.setEmail(request.email().toLowerCase(Locale.ROOT));
         existing.setPhone(request.phone());
+        existing.setMaxContact(request.maxContact());
         existing.setPasswordHash(passwordEncoder.encode(request.password()));
         existing.setRole(request.role());
         existing.setActive(request.active());
@@ -101,7 +103,7 @@ public class UserService {
     }
 
     public AuthDtos.UserSummary toSummary(AppUser user) {
-        return new AuthDtos.UserSummary(user.getId(), AuthService.fullName(user), user.getEmail(), user.getRole());
+        return new AuthDtos.UserSummary(user.getId(), AuthService.fullName(user), user.getEmail(), user.getRole(), user.getMaxContact());
     }
 
     public UserDtos.UserResponse toResponse(AppUser user) {
@@ -112,6 +114,7 @@ public class UserService {
             AuthService.fullName(user),
             user.getEmail(),
             user.getPhone(),
+            user.getMaxContact(),
             user.getRole(),
             user.isActive(),
             user.getCreatedAt() == null ? null : user.getCreatedAt().toString(),

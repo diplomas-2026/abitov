@@ -78,6 +78,7 @@ public class EnrollmentService {
             .enrolledAt(now)
             .status(EnrollmentStatus.ACTIVE)
             .notes(request.notes())
+            .groupName(request.groupName())
             .nextDueAt(now.plusMonths(course.getRepeatMonths()))
             .createdAt(Instant.now())
             .updatedAt(Instant.now())
@@ -145,6 +146,7 @@ public class EnrollmentService {
             enrollment.getCompletedAt() == null ? null : enrollment.getCompletedAt().toString(),
             enrollment.getNextDueAt() == null ? null : enrollment.getNextDueAt().toString(),
             enrollment.getStatus(),
+            enrollment.getGroupName(),
             enrollment.getNotes()
         );
     }

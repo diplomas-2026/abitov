@@ -33,7 +33,8 @@ public final class AuthDtos {
         Long id,
         String fullName,
         String email,
-        Role role
+        Role role,
+        String maxContact
     ) {
     }
 }

@@ -15,6 +15,7 @@ public final class UserDtos {
         @NotBlank String lastName,
         @Email @NotBlank String email,
         String phone,
+        String maxContact,
         @NotBlank String password,
         @NotNull Role role,
         boolean active
@@ -28,6 +29,7 @@ public final class UserDtos {
         String fullName,
         String email,
         String phone,
+        String maxContact,
         Role role,
         boolean active,
         String createdAt,

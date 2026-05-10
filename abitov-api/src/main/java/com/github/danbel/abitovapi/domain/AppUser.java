@@ -40,6 +40,9 @@ public class AppUser {
     @Column("phone")
     private String phone;
 
+    @Column("max_contact")
+    private String maxContact;
+
     @Column("created_at")
     private Instant createdAt;
 
