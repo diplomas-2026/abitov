@@ -273,6 +273,7 @@ function App() {
             <Route path="/tests/:id/edit" element={<TestFormPage mode="edit" />} />
             <Route path="/enrollments" element={<EnrollmentsPage />} />
             <Route path="/enrollments/:id" element={<EnrollmentDetailPage />} />
+            <Route path="/teachers/:id" element={<TeacherDetailPage />} />
             <Route path="/enrollments/new" element={<EnrollmentFormPage mode="create" />} />
             <Route path="/enrollments/:id/edit" element={<EnrollmentFormPage mode="edit" />} />
             <Route path="/notifications" element={<NotificationsPage />} />
@@ -3522,24 +3523,28 @@ function EnrollmentDetailPage() {
         </Grid>
       </DetailSection>
 
-      <DetailSection title="Связанные действия" subtitle="Быстрые переходы">
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-          {selectedEnrollment.client?.id && (
-            <Button variant="outlined" onClick={() => navigate(`/users/${selectedEnrollment.client.id}`)}>
-              Карточка клиента
-            </Button>
-          )}
-          {selectedEnrollment.teacher?.id && (
-            <Button variant="outlined" onClick={() => navigate(`/users/${selectedEnrollment.teacher.id}`)}>
-              Карточка преподавателя
-            </Button>
-          )}
-          {selectedEnrollment.course?.id && (
-            <Button variant="outlined" onClick={() => navigate(`/courses/${selectedEnrollment.course.id}`)}>
-              Карточка курса
-            </Button>
-          )}
-        </Stack>
+      <DetailSection title="Преподаватель" subtitle="Карточка преподавателя по этой записи">
+        {selectedEnrollment.teacher?.id ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+            onClick={() => navigate(`/teachers/${selectedEnrollment.teacher.id}`)}
+          >
+            <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+              <Box>
+                <Typography sx={{ fontWeight: 700 }}>{selectedEnrollment.teacher.fullName}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedEnrollment.teacher.email} · {selectedEnrollment.teacher.role}
+                </Typography>
+              </Box>
+              <Button variant="outlined" onClick={(event) => { event.stopPropagation(); navigate(`/teachers/${selectedEnrollment.teacher.id}`); }}>
+                Открыть преподавателя
+              </Button>
+            </Stack>
+          </Paper>
+        ) : (
+          <Alert severity="info">Преподаватель для этой записи не назначен.</Alert>
+        )}
       </DetailSection>
 
       <DetailSection title="Уведомления по записи" subtitle="Напоминания и email-уведомления">
@@ -3562,6 +3567,117 @@ function EnrollmentDetailPage() {
                     </Typography>
                   </Box>
                   <Typography color="text.secondary">{formatDateTime(item.createdAt)}</Typography>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function TeacherDetailPage() {
+  const { id } = useParams();
+  const { dashboard, navigate, user } = useOutletContext();
+  const teacherFromEnrollments = (dashboard?.enrollments || [])
+    .flatMap((enrollment) => [String(enrollment.teacher?.id) === String(id) ? enrollment.teacher : null])
+    .find(Boolean);
+  const selectedTeacher =
+    teacherFromEnrollments ||
+    (dashboard?.users || []).find((item) => String(item.id) === id) ||
+    null;
+  const relatedEnrollments = (dashboard?.enrollments || []).filter(
+    (item) => String(item.teacher?.id) === String(id)
+  );
+  const relatedCourses = (dashboard?.courses || []).filter((course) =>
+    relatedEnrollments.some((enrollment) => String(enrollment.course?.id) === String(course.id))
+  );
+  const isOwnTeacher = user?.id && String(user.id) === String(id);
+
+  if (!selectedTeacher) {
+    return <Alert severity="error">Преподаватель не найден.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedTeacher.fullName}
+        subtitle="Подробная карточка преподавателя"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/enrollments')}>
+              Назад к записям
+            </Button>
+            {(user?.role === 'ADMIN' || isOwnTeacher) && (
+              <Button variant="contained" onClick={() => navigate(`/users/${selectedTeacher.id}`)}>
+                Открыть профиль
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Профиль" subtitle="Данные преподавателя">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedTeacher.id} />
+          <DetailField label="ФИО" value={selectedTeacher.fullName} />
+          <DetailField label="Email" value={selectedTeacher.email} />
+          <DetailField label="Роль" value={selectedTeacher.role} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Работа с клиентами" subtitle="Записи, где преподаватель назначен">
+        <Grid container spacing={2}>
+          <MetricSummary title="Записей" value={relatedEnrollments.length} />
+          <MetricSummary title="Курсов" value={relatedCourses.length} />
+        </Grid>
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          {relatedEnrollments.length === 0 ? (
+            <Alert severity="info">Пока нет записей, связанных с этим преподавателем.</Alert>
+          ) : (
+            relatedEnrollments.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/enrollments/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.client?.fullName}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.course?.title} · {item.status}
+                    </Typography>
+                  </Box>
+                  <Typography color="text.secondary">{formatDate(item.nextDueAt)}</Typography>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Курсы" subtitle="Программы, по которым работает преподаватель">
+        <Stack spacing={2}>
+          {relatedCourses.length === 0 ? (
+            <Alert severity="info">Связанные курсы не найдены.</Alert>
+          ) : (
+            relatedCourses.map((course) => (
+              <Paper
+                key={course.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/courses/${course.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{course.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {course.description}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={`${course.programCount} программ`} variant="outlined" />
                 </Stack>
               </Paper>
             ))
