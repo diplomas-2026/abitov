@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   AppBar,
@@ -218,15 +218,19 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/users/new" element={<UserFormPage mode="create" />} />
             <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
             <Route path="/courses" element={<CoursesPage />} />
+            <Route path="/courses/:id" element={<CourseDetailPage />} />
             <Route path="/courses/new" element={<CourseFormPage mode="create" />} />
             <Route path="/courses/:id/edit" element={<CourseFormPage mode="edit" />} />
             <Route path="/enrollments" element={<EnrollmentsPage />} />
+            <Route path="/enrollments/:id" element={<EnrollmentDetailPage />} />
             <Route path="/enrollments/new" element={<EnrollmentFormPage mode="create" />} />
             <Route path="/enrollments/:id/edit" element={<EnrollmentFormPage mode="edit" />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to={token ? '/dashboard' : '/login'} replace />} />
@@ -508,7 +512,43 @@ function DashboardPage() {
 function UsersPage() {
   const { token, user, users, navigate, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
   const isAdmin = user?.role === 'ADMIN';
-  const visibleUsers = isAdmin ? users : user ? [user] : [];
+  const visibleUsers = useMemo(() => (isAdmin ? users : user ? [user] : []), [isAdmin, users, user]);
+  const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('name');
+
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return [...visibleUsers]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [item.fullName, item.email, item.phone, item.role]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesRole = roleFilter === 'ALL' || item.role === roleFilter;
+        const matchesStatus =
+          statusFilter === 'ALL' ||
+          (statusFilter === 'ACTIVE' ? item.active : !item.active);
+        return matchesQuery && matchesRole && matchesStatus;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'email':
+            return String(left.email || '').localeCompare(String(right.email || ''), 'ru');
+          case 'role':
+            return String(left.role || '').localeCompare(String(right.role || ''), 'ru');
+          case 'created':
+            return compareDates(left.createdAt, right.createdAt);
+          case 'login':
+            return compareDates(left.lastLoginAt, right.lastLoginAt);
+          default:
+            return String(left.fullName || '').localeCompare(String(right.fullName || ''), 'ru');
+        }
+      });
+  }, [query, roleFilter, statusFilter, sortBy, visibleUsers]);
 
   async function handleDelete(id) {
     setBusy(true);
@@ -535,6 +575,49 @@ function UsersPage() {
           )}
         </Stack>
 
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="ФИО, email, телефон"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'name', label: 'Сортировка: по ФИО' },
+            { value: 'email', label: 'Сортировка: по email' },
+            { value: 'role', label: 'Сортировка: по роли' },
+            { value: 'created', label: 'Сортировка: по дате создания' },
+            { value: 'login', label: 'Сортировка: по последнему входу' },
+          ]}
+          filters={[
+            {
+              value: roleFilter,
+              onChange: setRoleFilter,
+              label: 'Роль',
+              options: [
+                { value: 'ALL', label: 'Все роли' },
+                { value: 'ADMIN', label: 'Администратор' },
+                { value: 'TEACHER', label: 'Преподаватель' },
+                { value: 'CLIENT', label: 'Клиент / слушатель' },
+              ],
+            },
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'Активные' },
+                { value: 'INACTIVE', label: 'Неактивные' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredUsers.length} из {visibleUsers.length}
+        </Typography>
+
         {!isAdmin && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Для преподавателя и клиента доступен только просмотр собственного профиля.
@@ -549,25 +632,35 @@ function UsersPage() {
                 <TableCell>Роль</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Статус</TableCell>
+                <TableCell>Создан</TableCell>
                 {isAdmin && <TableCell align="right">Действия</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleUsers.map((item) => (
-                <TableRow key={item.id} hover>
+              {filteredUsers.map((item) => (
+                <TableRow
+                  key={item.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/users/${item.id}`)}
+                >
                   <TableCell>{item.fullName}</TableCell>
                   <TableCell>{item.role}</TableCell>
                   <TableCell>{item.email}</TableCell>
                   <TableCell>
                     <Chip size="small" label={item.active ? 'Активен' : 'Неактивен'} color={item.active ? 'success' : 'default'} variant="outlined" />
                   </TableCell>
+                  <TableCell>{formatDateTime(item.createdAt)}</TableCell>
                   {isAdmin && (
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" onClick={() => navigate(`/users/${item.id}/edit`)}>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/users/${item.id}`); }}>
+                          Открыть
+                        </Button>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/users/${item.id}/edit`); }}>
                           Редактировать
                         </Button>
-                        <Button size="small" color="error" onClick={() => handleDelete(item.id)} disabled={busy}>
+                        <Button size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDelete(item.id); }} disabled={busy}>
                           Удалить
                         </Button>
                       </Stack>
@@ -710,8 +803,42 @@ function UserFormPage({ mode }) {
 
 function CoursesPage() {
   const { user, dashboard, busy, setBusy, refreshWorkspace, notify, navigate, token } = useOutletContext();
-  const courses = dashboard?.courses || [];
+  const courses = useMemo(() => dashboard?.courses || [], [dashboard]);
   const isAdmin = user?.role === 'ADMIN';
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [formatFilter, setFormatFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('title');
+
+  const filteredCourses = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return [...courses]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [item.title, item.description, item.trainingFormat]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesStatus =
+          statusFilter === 'ALL' ||
+          (statusFilter === 'ACTIVE' ? item.active : !item.active);
+        const matchesFormat = formatFilter === 'ALL' || item.trainingFormat === formatFilter;
+        return matchesQuery && matchesStatus && matchesFormat;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'repeat':
+            return Number(left.repeatMonths || 0) - Number(right.repeatMonths || 0);
+          case 'enrollments':
+            return Number(right.enrollmentCount || 0) - Number(left.enrollmentCount || 0);
+          case 'active':
+            return Number(right.activeEnrollmentCount || 0) - Number(left.activeEnrollmentCount || 0);
+          default:
+            return String(left.title || '').localeCompare(String(right.title || ''), 'ru');
+        }
+      });
+  }, [courses, query, statusFilter, formatFilter, sortBy]);
 
   async function handleDelete(id) {
     setBusy(true);
@@ -738,6 +865,49 @@ function CoursesPage() {
           )}
         </Stack>
 
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Название, описание, формат"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'title', label: 'Сортировка: по названию' },
+            { value: 'repeat', label: 'Сортировка: по сроку повторения' },
+            { value: 'enrollments', label: 'Сортировка: по количеству записей' },
+            { value: 'active', label: 'Сортировка: по активным записям' },
+          ]}
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'Активные' },
+                { value: 'INACTIVE', label: 'Неактивные' },
+              ],
+            },
+            {
+              value: formatFilter,
+              onChange: setFormatFilter,
+              label: 'Формат',
+              options: [
+                { value: 'ALL', label: 'Все форматы' },
+                ...Array.from(new Set(courses.map((course) => course.trainingFormat).filter(Boolean))).map((format) => ({
+                  value: format,
+                  label: format,
+                })),
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredCourses.length} из {courses.length}
+        </Typography>
+
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
@@ -751,8 +921,13 @@ function CoursesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {courses.map((course) => (
-                <TableRow key={course.id} hover>
+              {filteredCourses.map((course) => (
+                <TableRow
+                  key={course.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/courses/${course.id}`)}
+                >
                   <TableCell>
                     <Typography variant="subtitle2">{course.title}</Typography>
                     <Typography variant="body2" color="text.secondary">{course.description}</Typography>
@@ -766,10 +941,13 @@ function CoursesPage() {
                   {isAdmin && (
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" onClick={() => navigate(`/courses/${course.id}/edit`)}>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/courses/${course.id}`); }}>
+                          Открыть
+                        </Button>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/courses/${course.id}/edit`); }}>
                           Редактировать
                         </Button>
-                        <Button size="small" color="error" onClick={() => handleDelete(course.id)} disabled={busy}>
+                        <Button size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDelete(course.id); }} disabled={busy}>
                           Удалить
                         </Button>
                       </Stack>
@@ -888,8 +1066,46 @@ function CourseFormPage({ mode }) {
 
 function EnrollmentsPage() {
   const { user, dashboard, navigate, busy, setBusy, notify, refreshWorkspace, token } = useOutletContext();
-  const enrollments = dashboard?.enrollments || [];
+  const enrollments = useMemo(() => dashboard?.enrollments || [], [dashboard]);
   const canEdit = user?.role === 'ADMIN' || user?.role === 'TEACHER';
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('due');
+
+  const filteredEnrollments = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return [...enrollments]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [
+            item.client?.fullName,
+            item.client?.email,
+            item.course?.title,
+            item.teacher?.fullName,
+            item.notes,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
+        return matchesQuery && matchesStatus;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'client':
+            return String(left.client?.fullName || '').localeCompare(String(right.client?.fullName || ''), 'ru');
+          case 'course':
+            return String(left.course?.title || '').localeCompare(String(right.course?.title || ''), 'ru');
+          case 'status':
+            return String(left.status || '').localeCompare(String(right.status || ''), 'ru');
+          case 'enrolled':
+            return compareDates(left.enrolledAt, right.enrolledAt);
+          default:
+            return compareDates(left.nextDueAt, right.nextDueAt);
+        }
+      });
+  }, [enrollments, query, statusFilter, sortBy]);
 
   async function handleComplete(id) {
     setBusy(true);
@@ -916,9 +1132,47 @@ function EnrollmentsPage() {
           )}
         </Stack>
 
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Клиент, курс, преподаватель, комментарий"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'due', label: 'Сортировка: по следующей дате' },
+            { value: 'enrolled', label: 'Сортировка: по дате записи' },
+            { value: 'client', label: 'Сортировка: по клиенту' },
+            { value: 'course', label: 'Сортировка: по курсу' },
+            { value: 'status', label: 'Сортировка: по статусу' },
+          ]}
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'ACTIVE' },
+                { value: 'COMPLETED', label: 'COMPLETED' },
+                { value: 'CANCELLED', label: 'CANCELLED' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredEnrollments.length} из {enrollments.length}
+        </Typography>
+
         <Stack spacing={2}>
-          {enrollments.map((item) => (
-            <Paper key={item.id} variant="outlined" sx={{ p: 2 }}>
+          {filteredEnrollments.map((item) => (
+            <Paper
+              key={item.id}
+              variant="outlined"
+              sx={{ p: 2, cursor: 'pointer', transition: 'transform .15s ease', '&:hover': { transform: 'translateY(-1px)' } }}
+              onClick={() => navigate(`/enrollments/${item.id}`)}
+            >
               <Stack spacing={1.5}>
                 <Stack direction="row" justifyContent="space-between" alignItems="start" spacing={2}>
                   <Box>
@@ -952,12 +1206,17 @@ function EnrollmentsPage() {
                 </Grid>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   {canEdit && (
-                    <Button size="small" onClick={() => navigate(`/enrollments/${item.id}/edit`)}>
+                    <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/enrollments/${item.id}`); }}>
+                      Открыть
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/enrollments/${item.id}/edit`); }}>
                       Редактировать
                     </Button>
                   )}
                   {canEdit && item.status !== 'COMPLETED' && (
-                    <Button size="small" variant="outlined" onClick={() => handleComplete(item.id)} disabled={busy}>
+                    <Button size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); handleComplete(item.id); }} disabled={busy}>
                       Отметить завершение
                     </Button>
                   )}
@@ -1189,9 +1448,49 @@ function EnrollmentFormPage({ mode }) {
 }
 
 function NotificationsPage() {
-  const { user, dashboard, busy, setBusy, refreshWorkspace, notify, token } = useOutletContext();
-  const notifications = dashboard?.notifications || [];
+  const { user, dashboard, busy, setBusy, refreshWorkspace, notify, token, navigate } = useOutletContext();
+  const notifications = useMemo(() => dashboard?.notifications || [], [dashboard]);
   const isAdmin = user?.role === 'ADMIN';
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [channelFilter, setChannelFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('due');
+
+  const filteredNotifications = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return [...notifications]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [
+            item.subject,
+            item.message,
+            item.recipientEmail,
+            item.client?.fullName,
+            item.course?.title,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
+        const matchesType = typeFilter === 'ALL' || item.type === typeFilter;
+        const matchesChannel = channelFilter === 'ALL' || item.deliveryChannel === channelFilter;
+        return matchesQuery && matchesStatus && matchesType && matchesChannel;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'created':
+            return compareDates(left.createdAt, right.createdAt);
+          case 'sent':
+            return compareDates(left.sentAt, right.sentAt);
+          case 'status':
+            return String(left.status || '').localeCompare(String(right.status || ''), 'ru');
+          default:
+            return compareDates(left.dueAt, right.dueAt);
+        }
+      });
+  }, [notifications, query, statusFilter, typeFilter, channelFilter, sortBy]);
 
   async function handleRunReminders() {
     setBusy(true);
@@ -1218,9 +1517,67 @@ function NotificationsPage() {
           )}
         </Stack>
 
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Тема, сообщение, email, курс, клиент"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'due', label: 'Сортировка: по дате контроля' },
+            { value: 'created', label: 'Сортировка: по дате создания' },
+            { value: 'sent', label: 'Сортировка: по дате отправки' },
+            { value: 'status', label: 'Сортировка: по статусу' },
+          ]}
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'PENDING', label: 'PENDING' },
+                { value: 'SENT', label: 'SENT' },
+                { value: 'FAILED', label: 'FAILED' },
+              ],
+            },
+            {
+              value: typeFilter,
+              onChange: setTypeFilter,
+              label: 'Тип',
+              options: [
+                { value: 'ALL', label: 'Все типы' },
+                { value: 'REPEAT_REMINDER', label: 'REPEAT_REMINDER' },
+                { value: 'COURSE_ASSIGNMENT', label: 'COURSE_ASSIGNMENT' },
+                { value: 'SYSTEM_ALERT', label: 'SYSTEM_ALERT' },
+              ],
+            },
+            {
+              value: channelFilter,
+              onChange: setChannelFilter,
+              label: 'Канал',
+              options: [
+                { value: 'ALL', label: 'Все каналы' },
+                { value: 'EMAIL', label: 'EMAIL' },
+                { value: 'INTERNAL', label: 'INTERNAL' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredNotifications.length} из {notifications.length}
+        </Typography>
+
         <Stack spacing={2}>
-          {notifications.map((item) => (
-            <Paper key={item.id} variant="outlined" sx={{ p: 2 }}>
+          {filteredNotifications.map((item) => (
+            <Paper
+              key={item.id}
+              variant="outlined"
+              sx={{ p: 2, cursor: 'pointer', transition: 'transform .15s ease', '&:hover': { transform: 'translateY(-1px)' } }}
+              onClick={() => navigate(`/notifications/${item.id}`)}
+            >
               <Stack spacing={1.5}>
                 <Stack direction="row" justifyContent="space-between" alignItems="start" spacing={2}>
                   <Box>
@@ -1244,12 +1601,554 @@ function NotificationsPage() {
                     <Typography>{formatDate(item.dueAt)}</Typography>
                   </Grid>
                 </Grid>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/notifications/${item.id}`); }}>
+                    Открыть
+                  </Button>
+                </Stack>
               </Stack>
             </Paper>
           ))}
         </Stack>
       </CardContent>
     </Card>
+  );
+}
+
+function UserDetailPage() {
+  const { id } = useParams();
+  const { user, users, dashboard, navigate } = useOutletContext();
+  const selectedUser = users.find((item) => String(item.id) === id) || (user && String(user.id) === id ? user : null);
+  const relatedEnrollments = (dashboard?.enrollments || []).filter(
+    (item) => item.client?.id === selectedUser?.id || item.teacher?.id === selectedUser?.id
+  );
+  const relatedNotifications = (dashboard?.notifications || []).filter(
+    (item) => item.client?.id === selectedUser?.id
+  );
+  const isOwnProfile = selectedUser && user && String(selectedUser.id) === String(user.id);
+  const canView = user?.role === 'ADMIN' || isOwnProfile;
+
+  if (!canView) {
+    return <Alert severity="warning">Детальная карточка доступна только администратору или владельцу профиля.</Alert>;
+  }
+
+  if (!selectedUser) {
+    return <Alert severity="error">Пользователь не найден.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedUser.fullName}
+        subtitle="Подробная карточка пользователя"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/users')}>
+              Назад к списку
+            </Button>
+            {user?.role === 'ADMIN' && (
+              <Button variant="contained" onClick={() => navigate(`/users/${selectedUser.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Общие данные" subtitle="Все доступные поля из системы">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedUser.id} />
+          <DetailField label="Фамилия" value={selectedUser.lastName} />
+          <DetailField label="Имя" value={selectedUser.firstName} />
+          <DetailField label="Полное имя" value={selectedUser.fullName} />
+          <DetailField label="Email" value={selectedUser.email} />
+          <DetailField label="Телефон" value={selectedUser.phone || 'Не указан'} />
+          <DetailField label="Роль" value={selectedUser.role} />
+          <DetailField
+            label="Статус"
+            value={<Chip size="small" label={selectedUser.active ? 'Активен' : 'Неактивен'} color={selectedUser.active ? 'success' : 'default'} variant="outlined" />}
+          />
+          <DetailField label="Создан" value={formatDateTime(selectedUser.createdAt)} />
+          <DetailField label="Последний вход" value={formatDateTime(selectedUser.lastLoginAt)} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Связанные записи" subtitle="Курс, преподаватель и клиентская история">
+        <Grid container spacing={2}>
+          <MetricSummary title="Записей" value={relatedEnrollments.length} />
+          <MetricSummary title="Уведомлений" value={relatedNotifications.length} />
+          <MetricSummary
+            title="Активен"
+            value={selectedUser.active ? 'Да' : 'Нет'}
+          />
+        </Grid>
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          {relatedEnrollments.length === 0 ? (
+            <Alert severity="info">Связанных записей нет.</Alert>
+          ) : (
+            relatedEnrollments.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/enrollments/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.course?.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={formatDate(item.nextDueAt)} variant="outlined" />
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Уведомления" subtitle="Email-события, связанные с пользователем">
+        <Stack spacing={2}>
+          {relatedNotifications.length === 0 ? (
+            <Alert severity="info">Уведомления не найдены.</Alert>
+          ) : (
+            relatedNotifications.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/notifications/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.subject}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.course?.title} · {item.status}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={formatDateTime(item.dueAt)} variant="outlined" />
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function CourseDetailPage() {
+  const { id } = useParams();
+  const { dashboard, navigate, user } = useOutletContext();
+  const selectedCourse = dashboard?.courses?.find((item) => String(item.id) === id);
+  const relatedEnrollments = (dashboard?.enrollments || []).filter((item) => String(item.course?.id) === String(id));
+  const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.course?.id) === String(id));
+
+  if (!selectedCourse) {
+    return <Alert severity="error">Курс не найден.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedCourse.title}
+        subtitle="Подробная карточка курса"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/courses')}>
+              Назад к списку
+            </Button>
+            {user?.role === 'ADMIN' && (
+              <Button variant="contained" onClick={() => navigate(`/courses/${selectedCourse.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Параметры курса" subtitle="Максимум доступных данных">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedCourse.id} />
+          <DetailField label="Название" value={selectedCourse.title} />
+          <DetailField label="Описание" value={selectedCourse.description || 'Не указано'} />
+          <DetailField label="Формат" value={selectedCourse.trainingFormat} />
+          <DetailField label="Период повторения" value={`${selectedCourse.repeatMonths} мес.`} />
+          <DetailField
+            label="Статус"
+            value={<Chip size="small" label={selectedCourse.active ? 'Активен' : 'Неактивен'} color={selectedCourse.active ? 'success' : 'default'} variant="outlined" />}
+          />
+          <DetailField label="Всего записей" value={selectedCourse.enrollmentCount} />
+          <DetailField label="Активных записей" value={selectedCourse.activeEnrollmentCount} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Записи на курс" subtitle="Кто обучается по этой программе">
+        <Stack spacing={2}>
+          {relatedEnrollments.length === 0 ? (
+            <Alert severity="info">Записей на курс нет.</Alert>
+          ) : (
+            relatedEnrollments.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/enrollments/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.client?.fullName}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Следующее обучение
+                    </Typography>
+                    <Typography>{formatDate(item.nextDueAt)}</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Уведомления" subtitle="Напоминания по этому курсу">
+        <Stack spacing={2}>
+          {relatedNotifications.length === 0 ? (
+            <Alert severity="info">Уведомлений по курсу нет.</Alert>
+          ) : (
+            relatedNotifications.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/notifications/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.subject}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.client?.fullName} · {item.status}
+                    </Typography>
+                  </Box>
+                  <Typography color="text.secondary">{formatDateTime(item.createdAt)}</Typography>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function EnrollmentDetailPage() {
+  const { id } = useParams();
+  const { dashboard, user, navigate } = useOutletContext();
+  const selectedEnrollment = dashboard?.enrollments?.find((item) => String(item.id) === id);
+  const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.enrollmentId) === String(id));
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'TEACHER';
+
+  if (!selectedEnrollment) {
+    return <Alert severity="error">Запись не найдена.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={`${selectedEnrollment.client?.fullName || 'Клиент'} · ${selectedEnrollment.course?.title || 'Курс'}`}
+        subtitle="Подробная карточка записи на обучение"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/enrollments')}>
+              Назад к списку
+            </Button>
+            {canEdit && (
+              <Button variant="contained" onClick={() => navigate(`/enrollments/${selectedEnrollment.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Основная информация" subtitle="Все данные записи">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedEnrollment.id} />
+          <DetailField label="Клиент" value={selectedEnrollment.client?.fullName} />
+          <DetailField label="Email клиента" value={selectedEnrollment.client?.email} />
+          <DetailField label="Курс" value={selectedEnrollment.course?.title} />
+          <DetailField label="Преподаватель" value={selectedEnrollment.teacher?.fullName || 'Не назначен'} />
+          <DetailField label="Дата записи" value={formatDate(selectedEnrollment.enrolledAt)} />
+          <DetailField label="Дата завершения" value={formatDate(selectedEnrollment.completedAt)} />
+          <DetailField label="Следующее обучение" value={formatDate(selectedEnrollment.nextDueAt)} />
+          <DetailField
+            label="Статус"
+            value={<Chip size="small" label={selectedEnrollment.status} color={selectedEnrollment.status === 'ACTIVE' ? 'success' : 'default'} variant="outlined" />}
+          />
+          <DetailField label="Комментарий" value={selectedEnrollment.notes || 'Нет комментария'} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Связанные действия" subtitle="Быстрые переходы">
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {selectedEnrollment.client?.id && (
+            <Button variant="outlined" onClick={() => navigate(`/users/${selectedEnrollment.client.id}`)}>
+              Карточка клиента
+            </Button>
+          )}
+          {selectedEnrollment.teacher?.id && (
+            <Button variant="outlined" onClick={() => navigate(`/users/${selectedEnrollment.teacher.id}`)}>
+              Карточка преподавателя
+            </Button>
+          )}
+          {selectedEnrollment.course?.id && (
+            <Button variant="outlined" onClick={() => navigate(`/courses/${selectedEnrollment.course.id}`)}>
+              Карточка курса
+            </Button>
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Уведомления по записи" subtitle="Напоминания и email-уведомления">
+        <Stack spacing={2}>
+          {relatedNotifications.length === 0 ? (
+            <Alert severity="info">Уведомлений по записи нет.</Alert>
+          ) : (
+            relatedNotifications.map((item) => (
+              <Paper
+                key={item.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/notifications/${item.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{item.subject}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.status} · {item.deliveryChannel}
+                    </Typography>
+                  </Box>
+                  <Typography color="text.secondary">{formatDateTime(item.createdAt)}</Typography>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function NotificationDetailPage() {
+  const { id } = useParams();
+  const { dashboard, navigate } = useOutletContext();
+  const selectedNotification = dashboard?.notifications?.find((item) => String(item.id) === id);
+
+  if (!selectedNotification) {
+    return <Alert severity="error">Уведомление не найдено.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedNotification.subject}
+        subtitle="Подробная карточка уведомления"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/notifications')}>
+              Назад к списку
+            </Button>
+            {selectedNotification.enrollmentId && (
+              <Button variant="contained" onClick={() => navigate(`/enrollments/${selectedNotification.enrollmentId}`)}>
+                Открыть запись
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Содержимое уведомления" subtitle="Вся доступная информация">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedNotification.id} />
+          <DetailField label="Тип" value={selectedNotification.type} />
+          <DetailField label="Канал" value={selectedNotification.deliveryChannel} />
+          <DetailField label="Статус" value={selectedNotification.status} />
+          <DetailField label="Получатель" value={selectedNotification.recipientEmail} />
+          <DetailField label="Клиент" value={selectedNotification.client?.fullName} />
+          <DetailField label="Курс" value={selectedNotification.course?.title} />
+          <DetailField label="Запись ID" value={selectedNotification.enrollmentId} />
+          <DetailField label="Дата контроля" value={formatDate(selectedNotification.dueAt)} />
+          <DetailField label="Создано" value={formatDateTime(selectedNotification.createdAt)} />
+          <DetailField label="Отправлено" value={formatDateTime(selectedNotification.sentAt)} />
+          <DetailField label="Ошибка" value={selectedNotification.failureReason || 'Нет ошибок'} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Текст сообщения" subtitle="Тема и содержимое письма">
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Тема
+          </Typography>
+          <Typography sx={{ mb: 2 }}>{selectedNotification.subject}</Typography>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Сообщение
+          </Typography>
+          <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{selectedNotification.message}</Typography>
+        </Paper>
+      </DetailSection>
+
+      <DetailSection title="Связанные переходы" subtitle="Быстрый доступ к клиенту и курсу">
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {selectedNotification.client?.id && (
+            <Button variant="outlined" onClick={() => navigate(`/users/${selectedNotification.client.id}`)}>
+              Карточка клиента
+            </Button>
+          )}
+          {selectedNotification.course?.id && (
+            <Button variant="outlined" onClick={() => navigate(`/courses/${selectedNotification.course.id}`)}>
+              Карточка курса
+            </Button>
+          )}
+          {selectedNotification.enrollmentId && (
+            <Button variant="outlined" onClick={() => navigate(`/enrollments/${selectedNotification.enrollmentId}`)}>
+              Карточка записи
+            </Button>
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function DetailHeader({ title, subtitle, actions }) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        border: 1,
+        borderColor: 'divider',
+        background: 'linear-gradient(135deg, rgba(26,115,232,0.08), rgba(251,188,4,0.08))',
+      }}
+    >
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
+        <Box>
+          <Typography variant="overline" color="text.secondary">
+            Подробная информация
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            {title}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            {subtitle}
+          </Typography>
+        </Box>
+        {actions}
+      </Stack>
+    </Paper>
+  );
+}
+
+function DetailSection({ title, subtitle, children }) {
+  return (
+    <Paper elevation={0} sx={{ p: 3, border: 1, borderColor: 'divider' }}>
+      <SectionTitle title={title} subtitle={subtitle} />
+      <Box sx={{ mt: 2 }}>{children}</Box>
+    </Paper>
+  );
+}
+
+function DetailField({ label, value }) {
+  return (
+    <Grid item xs={12} sm={6} md={4}>
+      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'grey.50', border: 1, borderColor: 'divider', height: '100%' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          {label}
+        </Typography>
+        <Box sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+          {value ?? 'Не указано'}
+        </Box>
+      </Box>
+    </Grid>
+  );
+}
+
+function MetricSummary({ title, value }) {
+  return (
+    <Grid item xs={12} sm={4}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          {title}
+        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
+          {value}
+        </Typography>
+      </Paper>
+    </Grid>
+  );
+}
+
+function ListToolbar({
+  query,
+  onQueryChange,
+  queryLabel,
+  queryPlaceholder,
+  sortValue,
+  onSortChange,
+  sortOptions,
+  filters = [],
+}) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'grey.50' }}>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={4}>
+          <TextField
+            label={queryLabel}
+            placeholder={queryPlaceholder}
+            fullWidth
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <TextField
+            select
+            label="Сортировка"
+            fullWidth
+            value={sortValue}
+            onChange={(event) => onSortChange(event.target.value)}
+          >
+            {sortOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+        {filters.map((filter) => (
+          <Grid item xs={12} md={4} key={filter.label}>
+            <TextField
+              select
+              label={filter.label}
+              fullWidth
+              value={filter.value}
+              onChange={(event) => filter.onChange(event.target.value)}
+            >
+              {filter.options.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+        ))}
+      </Grid>
+    </Paper>
   );
 }
 
@@ -1307,6 +2206,22 @@ function formatDate(value) {
     month: 'long',
     year: 'numeric',
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return 'Не указано';
+  }
+  return new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function compareDates(left, right) {
+  const leftTime = left ? new Date(left).getTime() : 0;
+  const rightTime = right ? new Date(right).getTime() : 0;
+  return rightTime - leftTime;
 }
 
 function safeParse(value) {
