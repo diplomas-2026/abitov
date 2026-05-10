@@ -158,15 +158,12 @@ function App() {
         api.dashboard(currentToken),
         api.me(currentToken),
       ]);
+      const workspaceUsers = await api.users(currentToken);
+      const currentWorkspaceUser = workspaceUsers.find((item) => String(item.id) === String(meData.id)) || workspaceUsers[0] || meData;
       setDashboard(dashboardData);
-      setUser(meData);
-      localStorage.setItem(USER_KEY, JSON.stringify(meData));
-
-      if (meData.role === 'ADMIN') {
-        setUsers(await api.users(currentToken));
-      } else {
-        setUsers([meData]);
-      }
+      setUser(currentWorkspaceUser);
+      setUsers(workspaceUsers);
+      localStorage.setItem(USER_KEY, JSON.stringify(currentWorkspaceUser));
       return true;
     } catch (error) {
       notify(error);
