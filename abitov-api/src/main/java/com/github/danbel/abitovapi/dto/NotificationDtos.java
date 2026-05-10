@@ -35,4 +35,12 @@ public final class NotificationDtos {
         List<NotificationResponse> notifications
     ) {
     }
+
+    public record BatchSendResponse(
+        int generated,
+        int sent,
+        int failed,
+        List<NotificationResponse> notifications
+    ) {
+    }
 }

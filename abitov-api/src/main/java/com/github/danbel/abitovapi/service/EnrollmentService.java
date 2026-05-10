@@ -56,6 +56,11 @@ public class EnrollmentService {
             .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Enrollment not found"));
     }
 
+    public Enrollment requireEntity(Long id) {
+        return enrollmentRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Enrollment not found"));
+    }
+
     public EnrollmentDtos.EnrollmentResponse getEnrollment(Long id, AuthenticatedUser currentUser) {
         Enrollment enrollment = enrollmentRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Enrollment not found"));

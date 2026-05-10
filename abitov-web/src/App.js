@@ -3404,11 +3404,31 @@ function UserDetailPage() {
 
 function CourseDetailPage() {
   const { id } = useParams();
-  const { dashboard, navigate, user } = useOutletContext();
+  const { dashboard, navigate, user, token, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
   const selectedCourse = dashboard?.courses?.find((item) => String(item.id) === id);
   const relatedPrograms = (dashboard?.programs || []).filter((item) => String(item.course?.id) === String(id));
   const relatedEnrollments = (dashboard?.enrollments || []).filter((item) => String(item.course?.id) === String(id));
   const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.course?.id) === String(id));
+  const visibleRecipients =
+    user?.role === 'TEACHER'
+      ? relatedEnrollments.filter((item) => item.teacher?.id && String(item.teacher.id) === String(user.id) && item.status !== 'CANCELLED')
+      : relatedEnrollments.filter((item) => item.status !== 'CANCELLED');
+  const canSendNotification = user?.role === 'ADMIN' || user?.role === 'METHODIST' || user?.role === 'TEACHER';
+  const courseSendLabel =
+    user?.role === 'TEACHER' ? 'Отправить своим слушателям' : 'Отправить всем клиентам курса';
+
+  async function handleSendNotification() {
+    setBusy(true);
+    try {
+      const result = await api.sendCourseNotification(token, selectedCourse.id);
+      await refreshWorkspace();
+      notify(`Уведомление отправлено: ${result.sent} из ${result.generated}`, 'success');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!selectedCourse) {
     return <Alert severity="error">Курс не найден.</Alert>;
@@ -3424,6 +3444,11 @@ function CourseDetailPage() {
             <Button variant="outlined" onClick={() => navigate('/courses')}>
               Назад к списку
             </Button>
+            {canSendNotification && (
+              <Button variant="contained" onClick={handleSendNotification} disabled={busy || visibleRecipients.length === 0}>
+                {courseSendLabel}
+              </Button>
+            )}
             {user?.role === 'ADMIN' && (
               <Button variant="contained" onClick={() => navigate(`/courses/${selectedCourse.id}/edit`)}>
                 Редактировать
@@ -3547,11 +3572,25 @@ function EnrollmentDetailPage() {
   const selectedEnrollment = dashboard?.enrollments?.find((item) => String(item.id) === id);
   const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.enrollmentId) === String(id));
   const canEdit = user?.role === 'ADMIN' || user?.role === 'METHODIST' || (user?.role === 'TEACHER' && String(selectedEnrollment?.teacher?.id) === String(user?.id));
+  const canSendNotification = user?.role === 'ADMIN' || user?.role === 'METHODIST' || (user?.role === 'TEACHER' && String(selectedEnrollment?.teacher?.id) === String(user?.id));
   const [groupName, setGroupName] = useState('');
 
   useEffect(() => {
     setGroupName(selectedEnrollment?.groupName || '');
   }, [selectedEnrollment]);
+
+  async function handleSendNotification() {
+    setBusy(true);
+    try {
+      const result = await api.sendEnrollmentNotification(token, selectedEnrollment.id);
+      await refreshWorkspace();
+      notify(`Уведомление отправлено: ${result.sent} из ${result.generated}`, 'success');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!selectedEnrollment) {
     return <Alert severity="error">Запись не найдена.</Alert>;
@@ -3567,6 +3606,11 @@ function EnrollmentDetailPage() {
             <Button variant="outlined" onClick={() => navigate('/enrollments')}>
               Назад к списку
             </Button>
+            {canSendNotification && (
+              <Button variant="contained" onClick={handleSendNotification} disabled={busy}>
+                Отправить уведомление клиенту
+              </Button>
+            )}
             {canEdit && (
               <Button variant="contained" onClick={() => navigate(`/enrollments/${selectedEnrollment.id}/edit`)}>
                 Редактировать
