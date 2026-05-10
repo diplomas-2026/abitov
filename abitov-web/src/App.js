@@ -2822,7 +2822,7 @@ function EnrollmentsPage() {
                     <Typography>{item.notes || 'Нет'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={4}>
-                    <Typography variant="caption" color="text.secondary">Группа</Typography>
+                    <Typography variant="caption" color="text.secondary">Группа в MAX</Typography>
                     <Typography>{item.groupName || 'Не указана'}</Typography>
                   </Grid>
                 </Grid>
@@ -2961,15 +2961,15 @@ function EnrollmentFormPage({ mode }) {
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
               />
               <TextField
-                label="Группа"
+                label="Группа в MAX"
                 fullWidth
                 value={form.groupName}
                 onChange={(event) => setForm({ ...form, groupName: event.target.value })}
                 disabled={isEdit}
                 helperText={
                   isEdit
-                    ? 'Группа задаётся при создании записи и не изменяется на этой странице.'
-                    : 'Группа указывается при создании записи и используется для общей связи в MAX'
+                    ? 'Группа в MAX задаётся при создании записи и не изменяется на этой странице.'
+                    : 'Группа в MAX указывается при создании записи и используется для общей связи в MAX'
                 }
               />
               <Stack direction="row" spacing={2}>
@@ -3070,7 +3070,7 @@ function EnrollmentFormPage({ mode }) {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Группа"
+                label="Группа в MAX"
                 fullWidth
                 value={form.groupName}
                 onChange={(event) => setForm({ ...form, groupName: event.target.value })}
@@ -3346,7 +3346,7 @@ function UserDetailPage() {
                       {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Группа: {item.groupName || 'Не указана'}
+                      Группа в MAX: {item.groupName || 'Не указана'}
                     </Typography>
                   </Box>
                   <Chip size="small" label={formatDate(item.nextDueAt)} variant="outlined" />
@@ -3480,7 +3480,7 @@ function CourseDetailPage() {
                       {item.teacher?.fullName || 'Без преподавателя'} · {item.status}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Группа: {item.groupName || 'Не указана'}
+                      Группа в MAX: {item.groupName || 'Не указана'}
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
@@ -3563,7 +3563,7 @@ function EnrollmentDetailPage() {
           <DetailField label="Email клиента" value={selectedEnrollment.client?.email} />
           <DetailField label="Курс" value={selectedEnrollment.course?.title} />
           <DetailField label="Преподаватель" value={selectedEnrollment.teacher?.fullName || 'Не назначен'} />
-          <DetailField label="Группа" value={selectedEnrollment.groupName || 'Не указана'} />
+          <DetailField label="Группа в MAX" value={selectedEnrollment.groupName || 'Не указана'} />
           <DetailField label="Дата записи" value={formatDate(selectedEnrollment.enrolledAt)} />
           <DetailField label="Дата завершения" value={formatDate(selectedEnrollment.completedAt)} />
           <DetailField label="Следующее обучение" value={formatDate(selectedEnrollment.nextDueAt)} />
@@ -3703,7 +3703,7 @@ function TeacherDetailPage() {
                       {item.course?.title} · {item.status}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Группа: {item.groupName || 'Не указана'}
+                      Группа в MAX: {item.groupName || 'Не указана'}
                     </Typography>
                   </Box>
                   <Typography color="text.secondary">{formatDate(item.nextDueAt)}</Typography>
