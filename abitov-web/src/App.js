@@ -2925,8 +2925,9 @@ function EnrollmentFormPage({ mode }) {
     setBusy(true);
     try {
       await api.updateEnrollmentTeacher(token, id, Number(form.teacherId));
+      await api.updateEnrollmentGroup(token, id, { groupName: form.groupName });
       await refreshWorkspace();
-      notify('Преподаватель обновлён', 'success');
+      notify('Запись обновлена', 'success');
       navigate('/enrollments', { replace: true });
     } catch (error) {
       notify(error);
@@ -2983,12 +2984,7 @@ function EnrollmentFormPage({ mode }) {
                 fullWidth
                 value={form.groupName}
                 onChange={(event) => setForm({ ...form, groupName: event.target.value })}
-                disabled={isEdit}
-                helperText={
-                  isEdit
-                    ? 'Группа в MAX задаётся при создании записи и не изменяется на этой странице.'
-                    : 'Группа в MAX указывается при создании записи и используется для общей связи в MAX'
-                }
+                helperText="Группа в MAX может быть изменена преподавателем записи или администратором."
               />
               <Stack direction="row" spacing={2}>
                 <Button type="submit" variant="contained" disabled={busy}>
