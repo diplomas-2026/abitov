@@ -1,21 +1,18 @@
 package com.github.danbel.abitovapi.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.danbel.abitovapi.domain.Role;
 import com.github.danbel.abitovapi.domain.TestAttempt;
 import com.github.danbel.abitovapi.domain.TestOption;
 import com.github.danbel.abitovapi.domain.TestQuestion;
 import com.github.danbel.abitovapi.domain.TrainingTest;
 import com.github.danbel.abitovapi.dto.LessonDtos;
-import com.github.danbel.abitovapi.dto.ProgramDtos;
 import com.github.danbel.abitovapi.dto.TestDtos;
 import com.github.danbel.abitovapi.repository.TestAttemptRepository;
 import com.github.danbel.abitovapi.repository.TestOptionRepository;
 import com.github.danbel.abitovapi.repository.TestQuestionRepository;
 import com.github.danbel.abitovapi.repository.TrainingTestRepository;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class TestService {
@@ -295,11 +293,7 @@ public class TestService {
     }
 
     private String writeAnswers(TestDtos.TestAttemptSubmitRequest request) {
-        try {
-            return objectMapper.writeValueAsString(request == null || request.answers() == null ? List.of() : request.answers());
-        } catch (JsonProcessingException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Невозможно сохранить ответы");
-        }
+        return objectMapper.writeValueAsString(request == null || request.answers() == null ? List.of() : request.answers());
     }
 
     private boolean canSeeAttempt(AuthenticatedUser currentUser, TestAttempt attempt) {
