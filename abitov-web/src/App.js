@@ -858,7 +858,7 @@ function UserFormPage({ mode }) {
                   value={form.maxContact}
                   onChange={(event) => setForm({ ...form, maxContact: event.target.value })}
                   helperText="Контакт преподавателя в MAX"
-                  disabled={isEdit && !isAdmin}
+                  disabled={isEdit && !isAdmin && !isOwnTeacher}
                 />
               </Grid>
             )}
