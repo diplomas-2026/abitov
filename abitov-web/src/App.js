@@ -255,6 +255,7 @@ function App() {
             <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:id" element={<CourseDetailPage />} />
+            <Route path="/courses/:id/notify" element={<NotificationComposePage scope="course" />} />
             <Route path="/courses/new" element={<CourseFormPage mode="create" />} />
             <Route path="/courses/:id/edit" element={<CourseFormPage mode="edit" />} />
             <Route path="/programs" element={<ProgramsPage />} />
@@ -274,6 +275,7 @@ function App() {
             <Route path="/enrollments/:id" element={<EnrollmentDetailPage />} />
             <Route path="/teachers/:id" element={<TeacherDetailPage />} />
             <Route path="/enrollments/new" element={<EnrollmentFormPage mode="create" />} />
+            <Route path="/enrollments/:id/notify" element={<NotificationComposePage scope="enrollment" />} />
             <Route path="/enrollments/:id/edit" element={<EnrollmentFormPage mode="edit" />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/notifications/:id" element={<NotificationDetailPage />} />
@@ -3404,7 +3406,7 @@ function UserDetailPage() {
 
 function CourseDetailPage() {
   const { id } = useParams();
-  const { dashboard, navigate, user, token, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
+  const { dashboard, navigate, user } = useOutletContext();
   const selectedCourse = dashboard?.courses?.find((item) => String(item.id) === id);
   const relatedPrograms = (dashboard?.programs || []).filter((item) => String(item.course?.id) === String(id));
   const relatedEnrollments = (dashboard?.enrollments || []).filter((item) => String(item.course?.id) === String(id));
@@ -3416,19 +3418,6 @@ function CourseDetailPage() {
   const canSendNotification = user?.role === 'ADMIN' || user?.role === 'METHODIST' || user?.role === 'TEACHER';
   const courseSendLabel =
     user?.role === 'TEACHER' ? 'Отправить своим слушателям' : 'Отправить всем клиентам курса';
-
-  async function handleSendNotification() {
-    setBusy(true);
-    try {
-      const result = await api.sendCourseNotification(token, selectedCourse.id);
-      await refreshWorkspace();
-      notify(`Уведомление отправлено: ${result.sent} из ${result.generated}`, 'success');
-    } catch (error) {
-      notify(error);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (!selectedCourse) {
     return <Alert severity="error">Курс не найден.</Alert>;
@@ -3445,7 +3434,7 @@ function CourseDetailPage() {
               Назад к списку
             </Button>
             {canSendNotification && (
-              <Button variant="contained" onClick={handleSendNotification} disabled={busy || visibleRecipients.length === 0}>
+              <Button variant="contained" onClick={() => navigate(`/courses/${selectedCourse.id}/notify`)} disabled={visibleRecipients.length === 0}>
                 {courseSendLabel}
               </Button>
             )}
@@ -3579,19 +3568,6 @@ function EnrollmentDetailPage() {
     setGroupName(selectedEnrollment?.groupName || '');
   }, [selectedEnrollment]);
 
-  async function handleSendNotification() {
-    setBusy(true);
-    try {
-      const result = await api.sendEnrollmentNotification(token, selectedEnrollment.id);
-      await refreshWorkspace();
-      notify(`Уведомление отправлено: ${result.sent} из ${result.generated}`, 'success');
-    } catch (error) {
-      notify(error);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!selectedEnrollment) {
     return <Alert severity="error">Запись не найдена.</Alert>;
   }
@@ -3607,7 +3583,7 @@ function EnrollmentDetailPage() {
               Назад к списку
             </Button>
             {canSendNotification && (
-              <Button variant="contained" onClick={handleSendNotification} disabled={busy}>
+              <Button variant="contained" onClick={() => navigate(`/enrollments/${selectedEnrollment.id}/notify`)}>
                 Отправить уведомление клиенту
               </Button>
             )}
@@ -3846,6 +3822,144 @@ function TeacherDetailPage() {
         </Stack>
       </DetailSection>
     </Stack>
+  );
+}
+
+function NotificationComposePage({ scope }) {
+  const { id } = useParams();
+  const { dashboard, user, token, busy, setBusy, refreshWorkspace, notify, navigate } = useOutletContext();
+  const selectedCourse = scope === 'course' ? dashboard?.courses?.find((item) => String(item.id) === id) : null;
+  const selectedEnrollment = scope === 'enrollment' ? dashboard?.enrollments?.find((item) => String(item.id) === id) : null;
+  const [form, setForm] = useState({ subject: '', message: '' });
+
+  const recipientEnrollments = useMemo(() => {
+    if (scope === 'course') {
+      const enrollments = (dashboard?.enrollments || []).filter((item) => String(item.course?.id) === String(id));
+      if (user?.role === 'TEACHER') {
+        return enrollments.filter((item) => item.teacher?.id && String(item.teacher.id) === String(user.id) && item.status !== 'CANCELLED');
+      }
+      return enrollments.filter((item) => item.status !== 'CANCELLED');
+    }
+    if (!selectedEnrollment) {
+      return [];
+    }
+    return [selectedEnrollment];
+  }, [dashboard, id, scope, selectedEnrollment, user]);
+
+  const canCompose =
+    user?.role === 'ADMIN'
+    || user?.role === 'METHODIST'
+    || (scope === 'course' && user?.role === 'TEACHER')
+    || (scope === 'enrollment' && user?.role === 'TEACHER' && selectedEnrollment?.teacher?.id && String(selectedEnrollment.teacher.id) === String(user.id));
+
+  useEffect(() => {
+    if (scope === 'course' && selectedCourse) {
+      setForm({
+        subject: `Уведомление по курсу: ${selectedCourse.title}`,
+        message: `Здравствуйте.\n\nЭто уведомление по курсу "${selectedCourse.title}".\n\nВведите здесь текст сообщения.`,
+      });
+    }
+    if (scope === 'enrollment' && selectedEnrollment) {
+      setForm({
+        subject: `Уведомление по записи: ${selectedEnrollment.course?.title || 'Курс'}`,
+        message: `Здравствуйте, ${selectedEnrollment.client?.fullName || 'клиент'}.\n\nЭто уведомление по вашей записи на курс "${selectedEnrollment.course?.title || 'курс'}".\n\nВведите здесь текст сообщения.`,
+      });
+    }
+  }, [scope, selectedCourse, selectedEnrollment]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const payload = {
+        subject: form.subject,
+        message: form.message,
+      };
+      const result =
+        scope === 'course'
+          ? await api.sendCourseNotification(token, id, payload)
+          : await api.sendEnrollmentNotification(token, id, payload);
+      await refreshWorkspace();
+      notify(`Уведомление отправлено: ${result.sent} из ${result.generated}`, 'success');
+      navigate(scope === 'course' ? `/courses/${id}` : `/enrollments/${id}`, { replace: true });
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!canCompose) {
+    return <Alert severity="warning">У вас нет доступа к отправке этого уведомления.</Alert>;
+  }
+
+  if (scope === 'course' && !selectedCourse) {
+    return <Alert severity="error">Курс не найден.</Alert>;
+  }
+
+  if (scope === 'enrollment' && !selectedEnrollment) {
+    return <Alert severity="error">Запись не найдена.</Alert>;
+  }
+
+  const recipientCount = recipientEnrollments.length;
+  const recipientLabel =
+    scope === 'course'
+      ? user?.role === 'TEACHER'
+        ? 'своим слушателям по курсу'
+        : 'всем клиентам курса'
+      : 'клиенту записи';
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <Stack spacing={3}>
+          <DetailHeader
+            title={scope === 'course' ? 'Отправка уведомления по курсу' : 'Отправка уведомления по записи'}
+            subtitle="Отдельная страница составления письма"
+            actions={
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(scope === 'course' ? `/courses/${id}` : `/enrollments/${id}`)}
+                >
+                  Назад
+                </Button>
+              </Stack>
+            }
+          />
+
+          <Alert severity="info">
+            Сообщение будет отправлено {recipientLabel}. Получателей: {recipientCount}.
+          </Alert>
+
+          <Stack component="form" spacing={2} onSubmit={handleSubmit}>
+            <TextField
+              label="Тема письма"
+              fullWidth
+              value={form.subject}
+              onChange={(event) => setForm({ ...form, subject: event.target.value })}
+            />
+            <TextField
+              label="Текст письма"
+              multiline
+              minRows={10}
+              fullWidth
+              value={form.message}
+              onChange={(event) => setForm({ ...form, message: event.target.value })}
+              helperText="Напиши текст сообщения так, как он должен прийти в email."
+            />
+            <Stack direction="row" spacing={2}>
+              <Button type="submit" variant="contained" disabled={busy || recipientCount === 0}>
+                Отправить
+              </Button>
+              <Button variant="outlined" onClick={() => navigate(scope === 'course' ? `/courses/${id}` : `/enrollments/${id}`)}>
+                Отмена
+              </Button>
+            </Stack>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -61,8 +61,8 @@ export const api = {
   updateEnrollmentTeacher: (token, id, teacherId) => request(`/enrollments/${id}/teacher/${teacherId}`, { method: 'PUT', token }),
   updateEnrollmentGroup: (token, id, body) => request(`/enrollments/${id}/group`, { method: 'PUT', token, body }),
   notifications: (token) => request('/notifications', { token }),
-  sendCourseNotification: (token, id) => request(`/notifications/courses/${id}/send`, { method: 'POST', token }),
-  sendEnrollmentNotification: (token, id) => request(`/notifications/enrollments/${id}/send`, { method: 'POST', token }),
+  sendCourseNotification: (token, id, body) => request(`/notifications/courses/${id}/send`, { method: 'POST', token, body }),
+  sendEnrollmentNotification: (token, id, body) => request(`/notifications/enrollments/${id}/send`, { method: 'POST', token, body }),
   runReminders: (token) => request('/notifications/run-reminders', { method: 'POST', token }),
 };
 

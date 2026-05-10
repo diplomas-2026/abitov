@@ -43,4 +43,10 @@ public final class NotificationDtos {
         List<NotificationResponse> notifications
     ) {
     }
+
+    public record NotificationComposeRequest(
+        @jakarta.validation.constraints.NotBlank String subject,
+        @jakarta.validation.constraints.NotBlank String message
+    ) {
+    }
 }

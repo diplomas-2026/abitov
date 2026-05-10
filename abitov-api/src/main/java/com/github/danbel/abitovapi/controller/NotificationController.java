@@ -36,21 +36,29 @@ public class NotificationController {
     }
 
     @PostMapping("/courses/{id}/send")
-    public NotificationDtos.BatchSendResponse sendByCourse(HttpServletRequest request, @org.springframework.web.bind.annotation.PathVariable Long id) {
+    public NotificationDtos.BatchSendResponse sendByCourse(
+        HttpServletRequest request,
+        @org.springframework.web.bind.annotation.PathVariable Long id,
+        @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody NotificationDtos.NotificationComposeRequest body
+    ) {
         AuthenticatedUser user = currentUser(request);
         if (user == null || (user.role() != Role.ADMIN && user.role() != Role.METHODIST && user.role() != Role.TEACHER)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
-        return notificationService.sendCourseNotification(id, user);
+        return notificationService.sendCourseNotification(id, user, body);
     }
 
     @PostMapping("/enrollments/{id}/send")
-    public NotificationDtos.BatchSendResponse sendByEnrollment(HttpServletRequest request, @org.springframework.web.bind.annotation.PathVariable Long id) {
+    public NotificationDtos.BatchSendResponse sendByEnrollment(
+        HttpServletRequest request,
+        @org.springframework.web.bind.annotation.PathVariable Long id,
+        @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody NotificationDtos.NotificationComposeRequest body
+    ) {
         AuthenticatedUser user = currentUser(request);
         if (user == null || (user.role() != Role.ADMIN && user.role() != Role.METHODIST && user.role() != Role.TEACHER)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
-        return notificationService.sendEnrollmentNotification(id, user);
+        return notificationService.sendEnrollmentNotification(id, user, body);
     }
 
     private AuthenticatedUser currentUser(HttpServletRequest request) {

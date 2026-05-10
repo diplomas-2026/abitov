@@ -121,7 +121,7 @@ public class NotificationService {
     }
 
     @Transactional
-    public NotificationDtos.BatchSendResponse sendCourseNotification(Long courseId, AuthenticatedUser currentUser) {
+    public NotificationDtos.BatchSendResponse sendCourseNotification(Long courseId, AuthenticatedUser currentUser, NotificationDtos.NotificationComposeRequest request) {
         var course = courseService.requireEntity(courseId);
         List<Enrollment> targets = enrollmentService.allEnrollments().stream()
             .filter(enrollment -> courseId.equals(enrollment.getCourseId()))
@@ -129,27 +129,18 @@ public class NotificationService {
             .filter(enrollment -> canSendCourseBroadcast(currentUser, enrollment))
             .collect(Collectors.toList());
         return sendBatch(targets, NotificationType.COURSE_ASSIGNMENT, enrollment -> {
-            var client = userService.requireEntity(enrollment.getClientId());
-            return new MessageParts(
-                "Уведомление по курсу: " + course.getTitle(),
-                buildCourseMessage(client.getFirstName(), course.getTitle(), enrollment.getGroupName(), currentUser)
-            );
+            return new MessageParts(request.subject(), request.message());
         });
     }
 
     @Transactional
-    public NotificationDtos.BatchSendResponse sendEnrollmentNotification(Long enrollmentId, AuthenticatedUser currentUser) {
+    public NotificationDtos.BatchSendResponse sendEnrollmentNotification(Long enrollmentId, AuthenticatedUser currentUser, NotificationDtos.NotificationComposeRequest request) {
         Enrollment enrollment = enrollmentService.requireEntity(enrollmentId);
         if (!canSendEnrollmentNotification(currentUser, enrollment)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
         return sendBatch(List.of(enrollment), NotificationType.SYSTEM_ALERT, item -> {
-            var client = userService.requireEntity(item.getClientId());
-            var course = courseService.requireEntity(item.getCourseId());
-            return new MessageParts(
-                "Уведомление по записи: " + course.getTitle(),
-                buildEnrollmentMessage(client.getFirstName(), course.getTitle(), item.getGroupName())
-            );
+            return new MessageParts(request.subject(), request.message());
         });
     }
 
@@ -269,24 +260,6 @@ public class NotificationService {
         return "Здравствуйте, " + firstName + ". Напоминаем, что для курса \"" + courseTitle
             + "\" требуется повторное обучение до " + dueAt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
             + ". Пожалуйста, свяжитесь с учебным центром для записи на ближайшую группу.";
-    }
-
-    private String buildCourseMessage(String firstName, String courseTitle, String groupName, AuthenticatedUser currentUser) {
-        String sender = currentUser == null ? "учебного центра" : switch (currentUser.role()) {
-            case TEACHER -> "преподавателя " + currentUser.fullName();
-            case METHODIST -> "методиста";
-            case ADMIN -> "администратора";
-            default -> "учебного центра";
-        };
-        String groupText = groupName == null || groupName.isBlank() ? "Группа в MAX не указана." : "Группа в MAX: " + groupName + ".";
-        return "Здравствуйте, " + firstName + ". Вам отправлено уведомление по курсу \"" + courseTitle + "\" от " + sender + ". "
-            + groupText + " При необходимости свяжитесь с учебным центром.";
-    }
-
-    private String buildEnrollmentMessage(String firstName, String courseTitle, String groupName) {
-        String groupText = groupName == null || groupName.isBlank() ? "Группа в MAX не указана." : "Группа в MAX: " + groupName + ".";
-        return "Здравствуйте, " + firstName + ". Для вашей записи на курс \"" + courseTitle + "\" отправлено уведомление. "
-            + groupText + " Если нужно, свяжитесь с преподавателем или учебным центром.";
     }
 
     private record MessageParts(String subject, String message) {
