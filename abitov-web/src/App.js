@@ -354,6 +354,11 @@ function ProtectedLayout({ loading, onLogout, ctx }) {
                 {item.label}
               </Button>
             ))}
+            {user?.role === 'TEACHER' && (
+              <Button variant="outlined" onClick={() => navigate(`/users/${user.id}`)}>
+                Профиль
+              </Button>
+            )}
             <Button
               variant="outlined"
               onClick={async () => {
