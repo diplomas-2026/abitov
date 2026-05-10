@@ -3178,6 +3178,15 @@ function NotificationsPage() {
           )}
         </Stack>
 
+        {isAdmin && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Кнопка запускает системную проверку записей на повторное обучение. В рассылку попадут клиенты с активными записями,
+            у которых <strong>дата следующего обучения</strong> уже наступает в ближайшие 30 дней по настройке сервера.
+            Поле <strong>Дата следующего обучения</strong> в карточках соответствует <strong>nextDueAt</strong>.
+            Отменённые записи в рассылку не попадают.
+          </Alert>
+        )}
+
         <ListToolbar
           query={query}
           onQueryChange={setQuery}
