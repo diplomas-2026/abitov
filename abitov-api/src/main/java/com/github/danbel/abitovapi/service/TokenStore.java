@@ -25,6 +25,19 @@ public class TokenStore {
         return session;
     }
 
+    public AuthenticatedUser refreshSession(String token, AuthenticatedUser user) {
+        AuthenticatedUser session = new AuthenticatedUser(
+            user.id(),
+            user.email(),
+            user.fullName(),
+            user.role(),
+            token,
+            user.tokenIssuedAt() == null ? Instant.now() : user.tokenIssuedAt()
+        );
+        sessions.put(token, session);
+        return session;
+    }
+
     public AuthenticatedUser resolve(String token) {
         return sessions.get(token);
     }

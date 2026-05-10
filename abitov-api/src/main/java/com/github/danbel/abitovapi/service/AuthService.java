@@ -52,6 +52,17 @@ public class AuthService {
         ));
     }
 
+    public AuthenticatedUser refreshSession(String token, AuthDtos.UserSummary summary) {
+        return tokenStore.refreshSession(token, new AuthenticatedUser(
+            summary.id(),
+            summary.email(),
+            summary.fullName(),
+            summary.role(),
+            token,
+            Instant.now()
+        ));
+    }
+
     public AuthenticatedUser requireUserByToken(String token) {
         return tokenStore.resolve(token);
     }

@@ -1,8 +1,10 @@
 package com.github.danbel.abitovapi.controller;
 
 import com.github.danbel.abitovapi.domain.Role;
+import com.github.danbel.abitovapi.dto.AuthDtos;
 import com.github.danbel.abitovapi.dto.UserDtos;
 import com.github.danbel.abitovapi.service.AuthenticatedUser;
+import com.github.danbel.abitovapi.service.AuthService;
 import com.github.danbel.abitovapi.service.UserService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -22,9 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final AuthService authService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
     }
 
     @GetMapping
@@ -73,7 +77,15 @@ public class UserController {
         if (currentUser == null || currentUser.role() != Role.TEACHER) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
-        return userService.updateProfile(currentUser.id(), body);
+        UserDtos.UserResponse updated = userService.updateProfile(currentUser.id(), body);
+        authService.refreshSession(currentUser.token(), new AuthDtos.UserSummary(
+            updated.id(),
+            updated.fullName(),
+            updated.email(),
+            updated.role(),
+            updated.maxContact()
+        ));
+        return updated;
     }
 
     @DeleteMapping("/{id}")
