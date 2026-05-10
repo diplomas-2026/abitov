@@ -426,29 +426,7 @@ function LoginPage({ demoUsers, loginForm, setLoginForm, onLogin, busy }) {
                 формирует email-уведомления о необходимости пройти обучение повторно.
               </Typography>
 
-              <Grid container spacing={2} sx={{ mt: 3 }}>
-                {[
-                  ['Администратор', 'Управление пользователями, курсами и рассылкой'],
-                  ['Преподаватель', 'Работа с группами и отметка прохождения обучения'],
-                  ['Клиент / слушатель', 'Получение уведомлений о повторном обучении'],
-                ].map(([title, subtitle]) => (
-                  <Grid item xs={12} md={4} key={title}>
-                    <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                        {title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {subtitle}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-
               <Divider sx={{ my: 3 }} />
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Демо-доступы
-              </Typography>
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                 {demoUsers.map((item) => (
                   <Chip
