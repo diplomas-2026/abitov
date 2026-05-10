@@ -22,6 +22,11 @@ public final class EnrollmentDtos {
     ) {
     }
 
+    public record EnrollmentGroupRequest(
+        String groupName
+    ) {
+    }
+
     public record EnrollmentResponse(
         Long id,
         AuthDtos.UserSummary client,

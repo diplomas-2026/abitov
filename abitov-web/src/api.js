@@ -29,6 +29,7 @@ export const api = {
   me: (token) => request('/auth/me', { token }),
   dashboard: (token) => request('/dashboard', { token }),
   users: (token, role) => request(role ? `/users?role=${role}` : '/users', { token }),
+  updateMe: (token, body) => request('/users/me', { method: 'PUT', token, body }),
   createUser: (token, body) => request('/users', { method: 'POST', token, body }),
   updateUser: (token, id, body) => request(`/users/${id}`, { method: 'PUT', token, body }),
   deleteUser: (token, id) => request(`/users/${id}`, { method: 'DELETE', token }),
@@ -58,6 +59,7 @@ export const api = {
   createEnrollment: (token, body) => request('/enrollments', { method: 'POST', token, body }),
   completeEnrollment: (token, id, body) => request(`/enrollments/${id}/complete`, { method: 'POST', token, body }),
   updateEnrollmentTeacher: (token, id, teacherId) => request(`/enrollments/${id}/teacher/${teacherId}`, { method: 'PUT', token }),
+  updateEnrollmentGroup: (token, id, body) => request(`/enrollments/${id}/group`, { method: 'PUT', token, body }),
   notifications: (token) => request('/notifications', { token }),
   runReminders: (token) => request('/notifications/run-reminders', { method: 'POST', token }),
 };

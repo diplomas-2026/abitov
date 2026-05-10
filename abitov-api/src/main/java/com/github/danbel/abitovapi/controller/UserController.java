@@ -50,8 +50,30 @@ public class UserController {
 
     @PutMapping("/{id}")
     public UserDtos.UserResponse update(HttpServletRequest request, @PathVariable Long id, @Valid @RequestBody UserDtos.UserRequest body) {
-        requireAdmin(request);
-        return userService.update(id, body);
+        AuthenticatedUser currentUser = currentUser(request);
+        if (currentUser != null && currentUser.role() == Role.ADMIN) {
+            return userService.update(id, body);
+        }
+        if (currentUser != null && currentUser.role() == Role.TEACHER && currentUser.id().equals(id)) {
+            return userService.updateProfile(id, new UserDtos.UserProfileRequest(
+                body.firstName(),
+                body.lastName(),
+                body.email(),
+                body.phone(),
+                body.maxContact(),
+                body.password()
+            ));
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
+    }
+
+    @PutMapping("/me")
+    public UserDtos.UserResponse updateMe(HttpServletRequest request, @Valid @RequestBody UserDtos.UserProfileRequest body) {
+        AuthenticatedUser currentUser = currentUser(request);
+        if (currentUser == null || currentUser.role() != Role.TEACHER) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
+        }
+        return userService.updateProfile(currentUser.id(), body);
     }
 
     @DeleteMapping("/{id}")

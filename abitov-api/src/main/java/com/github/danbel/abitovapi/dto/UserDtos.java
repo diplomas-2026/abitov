@@ -22,6 +22,16 @@ public final class UserDtos {
     ) {
     }
 
+    public record UserProfileRequest(
+        @NotBlank String firstName,
+        @NotBlank String lastName,
+        @Email @NotBlank String email,
+        String phone,
+        String maxContact,
+        String password
+    ) {
+    }
+
     public record UserResponse(
         Long id,
         String firstName,

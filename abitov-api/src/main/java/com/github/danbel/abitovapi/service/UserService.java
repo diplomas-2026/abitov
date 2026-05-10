@@ -87,6 +87,26 @@ public class UserService {
     }
 
     @Transactional
+    public UserDtos.UserResponse updateProfile(Long id, UserDtos.UserProfileRequest request) {
+        AppUser existing = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
+        userRepository.findByEmailIgnoreCase(request.email())
+            .filter(other -> !Objects.equals(other.getId(), existing.getId()))
+            .ifPresent(other -> {
+                throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Email already exists");
+            });
+        existing.setFirstName(request.firstName());
+        existing.setLastName(request.lastName());
+        existing.setEmail(request.email().toLowerCase(Locale.ROOT));
+        existing.setPhone(request.phone());
+        existing.setMaxContact(request.maxContact());
+        if (request.password() != null && !request.password().isBlank()) {
+            existing.setPasswordHash(passwordEncoder.encode(request.password()));
+        }
+        return toResponse(userRepository.save(existing));
+    }
+
+    @Transactional
     public void delete(Long id) {
         boolean linked = StreamSupport.stream(enrollmentRepository.findAll().spliterator(), false)
             .anyMatch(enrollment ->

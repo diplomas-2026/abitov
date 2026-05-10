@@ -108,6 +108,15 @@ public class EnrollmentService {
         return toResponse(enrollmentRepository.save(enrollment));
     }
 
+    @Transactional
+    public EnrollmentDtos.EnrollmentResponse updateGroup(Long id, EnrollmentDtos.EnrollmentGroupRequest request) {
+        Enrollment enrollment = enrollmentRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Enrollment not found"));
+        enrollment.setGroupName(request.groupName());
+        enrollment.setUpdatedAt(Instant.now());
+        return toResponse(enrollmentRepository.save(enrollment));
+    }
+
     public List<EnrollmentDtos.EnrollmentResponse> upcoming(int days) {
         LocalDate today = LocalDate.now();
         LocalDate end = today.plusDays(days);

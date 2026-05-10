@@ -53,6 +53,12 @@ public class EnrollmentController {
         return enrollmentService.updateTeacher(id, teacherId);
     }
 
+    @PutMapping("/{id}/group")
+    public EnrollmentDtos.EnrollmentResponse updateGroup(HttpServletRequest servletRequest, @PathVariable Long id, @Valid @RequestBody EnrollmentDtos.EnrollmentGroupRequest request) {
+        requireTeacherOrAdminForGroupUpdate(servletRequest, id);
+        return enrollmentService.updateGroup(id, request);
+    }
+
     @PostMapping("/{id}/complete")
     public EnrollmentDtos.EnrollmentResponse complete(HttpServletRequest servletRequest, @PathVariable Long id, @RequestBody(required = false) EnrollmentDtos.EnrollmentCompletionRequest request) {
         requireManager(servletRequest);
@@ -68,5 +74,22 @@ public class EnrollmentController {
         if (user == null || (user.role() != Role.TEACHER && user.role() != Role.ADMIN && user.role() != Role.METHODIST)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
+    }
+
+    private void requireTeacherOrAdminForGroupUpdate(HttpServletRequest request, Long enrollmentId) {
+        AuthenticatedUser user = currentUser(request);
+        if (user == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
+        }
+        if (user.role() == Role.ADMIN || user.role() == Role.METHODIST) {
+            return;
+        }
+        if (user.role() == Role.TEACHER) {
+            EnrollmentDtos.EnrollmentResponse enrollment = enrollmentService.getEnrollment(enrollmentId);
+            if (enrollment.teacher() != null && user.id().equals(enrollment.teacher().id())) {
+                return;
+            }
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
     }
 }

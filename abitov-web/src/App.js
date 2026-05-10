@@ -748,6 +748,7 @@ function UserFormPage({ mode }) {
   const { token, user, users, busy, setBusy, refreshWorkspace, notify, navigate } = useOutletContext();
   const isEdit = mode === 'edit';
   const isAdmin = user?.role === 'ADMIN';
+  const isOwnTeacher = isEdit && user?.role === 'TEACHER' && String(user.id) === String(id);
   const existing = users.find((item) => String(item.id) === id);
   const [form, setForm] = useState(emptyUserForm);
 
@@ -766,8 +767,8 @@ function UserFormPage({ mode }) {
     }
   }, [isEdit, existing]);
 
-  if (!isAdmin) {
-    return <Alert severity="warning">Создание и редактирование пользователей доступно только администратору.</Alert>;
+  if (isEdit ? !(isAdmin || isOwnTeacher) : !isAdmin) {
+    return <Alert severity="warning">Создание доступно только администратору, а редактирование - администратору или преподавателю своего профиля.</Alert>;
   }
 
   async function handleSubmit(event) {
@@ -780,7 +781,18 @@ function UserFormPage({ mode }) {
         maxContact: form.role === 'TEACHER' ? form.maxContact : '',
       };
       if (isEdit) {
-        await api.updateUser(token, id, payload);
+        if (isAdmin) {
+          await api.updateUser(token, id, payload);
+        } else {
+          await api.updateMe(token, {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            phone: form.phone,
+            maxContact: form.maxContact,
+            password: form.password,
+          });
+        }
         notify('Пользователь обновлён', 'success');
       } else {
         await api.createUser(token, payload);
@@ -841,16 +853,18 @@ function UserFormPage({ mode }) {
                   value={form.maxContact}
                   onChange={(event) => setForm({ ...form, maxContact: event.target.value })}
                   helperText="Контакт преподавателя в MAX"
+                  disabled={isEdit && !isAdmin}
                 />
               </Grid>
             )}
             <Grid item xs={12} md={6}>
               <TextField
-                label={isEdit ? 'Новый пароль' : 'Пароль'}
+                label={isEdit && !isAdmin ? 'Новый пароль (необязательно)' : isEdit ? 'Новый пароль' : 'Пароль'}
                 type="password"
                 fullWidth
                 value={form.password}
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
+                helperText={isEdit && !isAdmin ? 'Оставь пустым, если пароль менять не нужно.' : ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -860,6 +874,7 @@ function UserFormPage({ mode }) {
                 fullWidth
                 value={form.role}
                 onChange={(event) => setForm({ ...form, role: event.target.value })}
+                disabled={isEdit && !isAdmin}
               >
                 <MenuItem value="ADMIN">Администратор</MenuItem>
                 <MenuItem value="METHODIST">Методист</MenuItem>
@@ -874,6 +889,7 @@ function UserFormPage({ mode }) {
                 fullWidth
                 value={String(form.active)}
                 onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+                disabled={isEdit && !isAdmin}
               >
                 <MenuItem value="true">Активен</MenuItem>
                 <MenuItem value="false">Неактивен</MenuItem>
@@ -3272,6 +3288,7 @@ function UserDetailPage() {
   );
   const isOwnProfile = selectedUser && user && String(selectedUser.id) === String(user.id);
   const canView = user?.role === 'ADMIN' || isOwnProfile;
+  const canEditProfile = user?.role === 'ADMIN' || (isOwnProfile && user?.role === 'TEACHER');
 
   if (!canView) {
     return <Alert severity="warning">Детальная карточка доступна только администратору или владельцу профиля.</Alert>;
@@ -3291,7 +3308,7 @@ function UserDetailPage() {
             <Button variant="outlined" onClick={() => navigate('/users')}>
               Назад к списку
             </Button>
-            {user?.role === 'ADMIN' && (
+            {canEditProfile && (
               <Button variant="contained" onClick={() => navigate(`/users/${selectedUser.id}/edit`)}>
                 Редактировать
               </Button>
@@ -3528,10 +3545,15 @@ function CourseDetailPage() {
 
 function EnrollmentDetailPage() {
   const { id } = useParams();
-  const { dashboard, user, navigate } = useOutletContext();
+  const { dashboard, user, token, busy, setBusy, refreshWorkspace, notify, navigate } = useOutletContext();
   const selectedEnrollment = dashboard?.enrollments?.find((item) => String(item.id) === id);
   const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.enrollmentId) === String(id));
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'TEACHER';
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'METHODIST' || (user?.role === 'TEACHER' && String(selectedEnrollment?.teacher?.id) === String(user?.id));
+  const [groupName, setGroupName] = useState('');
+
+  useEffect(() => {
+    setGroupName(selectedEnrollment?.groupName || '');
+  }, [selectedEnrollment]);
 
   if (!selectedEnrollment) {
     return <Alert severity="error">Запись не найдена.</Alert>;
@@ -3573,6 +3595,41 @@ function EnrollmentDetailPage() {
           />
           <DetailField label="Комментарий" value={selectedEnrollment.notes || 'Нет комментария'} />
         </Grid>
+      </DetailSection>
+
+      <DetailSection title="Группа в MAX" subtitle="Общая группа преподавателя и клиента в MAX">
+        <Stack spacing={2}>
+          <TextField
+            label="Группа в MAX"
+            fullWidth
+            value={groupName}
+            onChange={(event) => setGroupName(event.target.value)}
+            disabled={!canEdit}
+            helperText={canEdit ? 'Преподаватель этой записи или администратор может обновить группу.' : 'Изменение недоступно.'}
+          />
+          {canEdit && (
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await api.updateEnrollmentGroup(token, selectedEnrollment.id, { groupName });
+                    await refreshWorkspace();
+                    notify('Группа в MAX обновлена', 'success');
+                  } catch (error) {
+                    notify(error);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Сохранить группу
+              </Button>
+            </Stack>
+          )}
+        </Stack>
       </DetailSection>
 
       <DetailSection title="Преподаватель" subtitle="Карточка преподавателя по этой записи">
@@ -3646,6 +3703,7 @@ function TeacherDetailPage() {
     relatedEnrollments.some((enrollment) => String(enrollment.course?.id) === String(course.id))
   );
   const isOwnTeacher = user?.id && String(user.id) === String(id);
+  const canEditProfile = user?.role === 'ADMIN' || isOwnTeacher;
 
   if (!selectedTeacher) {
     return <Alert severity="error">Преподаватель не найден.</Alert>;
@@ -3661,8 +3719,13 @@ function TeacherDetailPage() {
             <Button variant="outlined" onClick={() => navigate('/enrollments')}>
               Назад к записям
             </Button>
+            {canEditProfile && (
+              <Button variant="contained" onClick={() => navigate(`/users/${selectedTeacher.id}/edit`)}>
+                Редактировать профиль
+              </Button>
+            )}
             {(user?.role === 'ADMIN' || isOwnTeacher) && (
-              <Button variant="contained" onClick={() => navigate(`/users/${selectedTeacher.id}`)}>
+              <Button variant="outlined" onClick={() => navigate(`/users/${selectedTeacher.id}`)}>
                 Открыть профиль
               </Button>
             )}
