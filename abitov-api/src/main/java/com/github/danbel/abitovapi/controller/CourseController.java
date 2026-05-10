@@ -1,6 +1,7 @@
 package com.github.danbel.abitovapi.controller;
 
 import com.github.danbel.abitovapi.dto.CourseDtos;
+import com.github.danbel.abitovapi.domain.Role;
 import com.github.danbel.abitovapi.service.AuthenticatedUser;
 import com.github.danbel.abitovapi.service.CourseService;
 import jakarta.validation.Valid;
@@ -37,25 +38,25 @@ public class CourseController {
 
     @PostMapping
     public CourseDtos.CourseResponse create(HttpServletRequest servletRequest, @Valid @RequestBody CourseDtos.CourseRequest request) {
-        requireAdmin(servletRequest);
+        requireManager(servletRequest);
         return courseService.create(request);
     }
 
     @PutMapping("/{id}")
     public CourseDtos.CourseResponse update(HttpServletRequest servletRequest, @PathVariable Long id, @Valid @RequestBody CourseDtos.CourseRequest request) {
-        requireAdmin(servletRequest);
+        requireManager(servletRequest);
         return courseService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     public void delete(HttpServletRequest servletRequest, @PathVariable Long id) {
-        requireAdmin(servletRequest);
+        requireManager(servletRequest);
         courseService.delete(id);
     }
 
-    private void requireAdmin(HttpServletRequest servletRequest) {
+    private void requireManager(HttpServletRequest servletRequest) {
         AuthenticatedUser currentUser = (AuthenticatedUser) servletRequest.getAttribute(com.github.danbel.abitovapi.config.WebConfig.AuthInterceptor.ATTR);
-        if (currentUser == null || currentUser.role() != com.github.danbel.abitovapi.domain.Role.ADMIN) {
+        if (currentUser == null || (currentUser.role() != Role.ADMIN && currentUser.role() != Role.METHODIST)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
     }

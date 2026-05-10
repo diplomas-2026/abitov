@@ -160,7 +160,7 @@ public class EnrollmentService {
     }
 
     private boolean isVisibleTo(AuthenticatedUser currentUser, Enrollment enrollment) {
-        if (currentUser == null || currentUser.role() == Role.ADMIN) {
+        if (currentUser == null || currentUser.role() == Role.ADMIN || currentUser.role() == Role.METHODIST) {
             return true;
         }
         if (currentUser.role() == Role.TEACHER) {

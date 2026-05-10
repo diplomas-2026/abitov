@@ -43,19 +43,19 @@ public class EnrollmentController {
 
     @PostMapping
     public EnrollmentDtos.EnrollmentResponse create(HttpServletRequest servletRequest, @Valid @RequestBody EnrollmentDtos.EnrollmentRequest request) {
-        requireTeacherOrAdmin(servletRequest);
+        requireManager(servletRequest);
         return enrollmentService.create(request);
     }
 
     @PutMapping("/{id}/teacher/{teacherId}")
     public EnrollmentDtos.EnrollmentResponse updateTeacher(HttpServletRequest servletRequest, @PathVariable Long id, @PathVariable Long teacherId) {
-        requireAdmin(servletRequest);
+        requireManager(servletRequest);
         return enrollmentService.updateTeacher(id, teacherId);
     }
 
     @PostMapping("/{id}/complete")
     public EnrollmentDtos.EnrollmentResponse complete(HttpServletRequest servletRequest, @PathVariable Long id, @RequestBody(required = false) EnrollmentDtos.EnrollmentCompletionRequest request) {
-        requireTeacherOrAdmin(servletRequest);
+        requireManager(servletRequest);
         return enrollmentService.complete(id, request == null ? new EnrollmentDtos.EnrollmentCompletionRequest(null) : request);
     }
 
@@ -63,16 +63,9 @@ public class EnrollmentController {
         return (AuthenticatedUser) request.getAttribute(com.github.danbel.abitovapi.config.WebConfig.AuthInterceptor.ATTR);
     }
 
-    private void requireTeacherOrAdmin(HttpServletRequest request) {
+    private void requireManager(HttpServletRequest request) {
         AuthenticatedUser user = currentUser(request);
-        if (user == null || (user.role() != Role.TEACHER && user.role() != Role.ADMIN)) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
-        }
-    }
-
-    private void requireAdmin(HttpServletRequest request) {
-        AuthenticatedUser user = currentUser(request);
-        if (user == null || user.role() != Role.ADMIN) {
+        if (user == null || (user.role() != Role.TEACHER && user.role() != Role.ADMIN && user.role() != Role.METHODIST)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
         }
     }

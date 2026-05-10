@@ -62,6 +62,7 @@ public class AuthService {
     public List<AuthDtos.DemoCredential> demoCredentials() {
         return List.of(
             new AuthDtos.DemoCredential("admin@abitov.local", "admin123", Role.ADMIN, "Администратор"),
+            new AuthDtos.DemoCredential("methodist@abitov.local", "teacher123", Role.METHODIST, "Методист"),
             new AuthDtos.DemoCredential("teacher@abitov.local", "teacher123", Role.TEACHER, "Преподаватель"),
             new AuthDtos.DemoCredential("client1@abitov.local", "client123", Role.CLIENT, "Клиент 1"),
             new AuthDtos.DemoCredential("client2@abitov.local", "client123", Role.CLIENT, "Клиент 2"),

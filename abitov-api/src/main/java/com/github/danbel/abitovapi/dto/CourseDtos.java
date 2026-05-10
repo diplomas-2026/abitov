@@ -25,6 +25,8 @@ public final class CourseDtos {
         int repeatMonths,
         String trainingFormat,
         boolean active,
+        int programCount,
+        int activeProgramCount,
         int enrollmentCount,
         int activeEnrollmentCount
     ) {

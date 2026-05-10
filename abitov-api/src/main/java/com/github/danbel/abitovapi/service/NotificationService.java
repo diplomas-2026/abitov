@@ -156,7 +156,7 @@ public class NotificationService {
     }
 
     private boolean isVisibleTo(AuthenticatedUser currentUser, NotificationRecord notification) {
-        if (currentUser == null || currentUser.role() == Role.ADMIN) {
+        if (currentUser == null || currentUser.role() == Role.ADMIN || currentUser.role() == Role.METHODIST) {
             return true;
         }
         if (currentUser.role() == Role.TEACHER) {

@@ -10,7 +10,11 @@ public final class DashboardDtos {
     public record DashboardResponse(
         Summary summary,
         List<CourseDtos.CourseResponse> courses,
+        List<ProgramDtos.ProgramResponse> programs,
+        List<LessonDtos.LessonResponse> lessons,
+        List<TestDtos.TestResponse> tests,
         List<EnrollmentDtos.EnrollmentResponse> enrollments,
+        List<TestDtos.TestAttemptResponse> attempts,
         List<NotificationDtos.NotificationResponse> notifications,
         List<AuthDtos.DemoCredential> demoCredentials
     ) {
@@ -21,6 +25,10 @@ public final class DashboardDtos {
         long totalClients,
         long totalTeachers,
         long totalCourses,
+        long totalPrograms,
+        long totalLessons,
+        long totalTests,
+        long totalAttempts,
         long activeEnrollments,
         long upcomingRepeats,
         long sentNotifications,

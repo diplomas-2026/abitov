@@ -5,6 +5,11 @@
 - Пароль: `admin123`
 - Роль: `ADMIN`
 
+## Методист
+- Email: `methodist@abitov.local`
+- Пароль: `teacher123`
+- Роль: `METHODIST`
+
 ## Преподаватель
 - Email: `teacher@abitov.local`
 - Пароль: `teacher123`

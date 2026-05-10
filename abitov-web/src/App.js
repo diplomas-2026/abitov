@@ -12,9 +12,14 @@ import {
   CssBaseline,
   Divider,
   Grid,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
   LinearProgress,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Snackbar,
   Stack,
   Table,
@@ -29,6 +34,8 @@ import {
   Typography,
   createTheme,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import './App.css';
 import { api } from './api';
@@ -87,6 +94,32 @@ const emptyEnrollmentForm = {
   courseId: '',
   teacherId: '',
   notes: '',
+};
+
+const emptyProgramForm = {
+  courseId: '',
+  title: '',
+  description: '',
+  position: 1,
+  active: true,
+};
+
+const emptyLessonForm = {
+  programId: '',
+  title: '',
+  body: '',
+  position: 1,
+  active: true,
+};
+
+const emptyTestForm = {
+  programId: '',
+  lessonId: '',
+  title: '',
+  passScore: 1,
+  maxAttempts: 1,
+  active: true,
+  questions: [],
 };
 
 function App() {
@@ -225,6 +258,19 @@ function App() {
             <Route path="/courses/:id" element={<CourseDetailPage />} />
             <Route path="/courses/new" element={<CourseFormPage mode="create" />} />
             <Route path="/courses/:id/edit" element={<CourseFormPage mode="edit" />} />
+            <Route path="/programs" element={<ProgramsPage />} />
+            <Route path="/programs/:id" element={<ProgramDetailPage />} />
+            <Route path="/programs/new" element={<ProgramFormPage mode="create" />} />
+            <Route path="/programs/:id/edit" element={<ProgramFormPage mode="edit" />} />
+            <Route path="/lessons" element={<LessonsPage />} />
+            <Route path="/lessons/:id" element={<LessonDetailPage />} />
+            <Route path="/lessons/new" element={<LessonFormPage mode="create" />} />
+            <Route path="/lessons/:id/edit" element={<LessonFormPage mode="edit" />} />
+            <Route path="/tests" element={<TestsPage />} />
+            <Route path="/tests/:id" element={<TestDetailPage />} />
+            <Route path="/tests/:id/take" element={<TestTakePage />} />
+            <Route path="/tests/new" element={<TestFormPage mode="create" />} />
+            <Route path="/tests/:id/edit" element={<TestFormPage mode="edit" />} />
             <Route path="/enrollments" element={<EnrollmentsPage />} />
             <Route path="/enrollments/:id" element={<EnrollmentDetailPage />} />
             <Route path="/enrollments/new" element={<EnrollmentFormPage mode="create" />} />
@@ -268,6 +314,9 @@ function ProtectedLayout({ loading, onLogout, ctx }) {
     { label: 'Главная', to: '/dashboard' },
     { label: 'Пользователи', to: '/users', adminOnly: true },
     { label: 'Курсы', to: '/courses' },
+    { label: 'Программы', to: '/programs' },
+    { label: 'Лекции', to: '/lessons' },
+    { label: 'Тесты', to: '/tests' },
     { label: 'Записи', to: '/enrollments' },
     { label: 'Уведомления', to: '/notifications', adminOnly: true },
   ].filter((item) => !item.adminOnly || user?.role === 'ADMIN');
@@ -479,9 +528,15 @@ function DashboardPage() {
             <Typography variant="body2" color="text.secondary">
               Рабочая роль
             </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {user?.role === 'ADMIN' ? 'Администратор' : user?.role === 'TEACHER' ? 'Преподаватель' : 'Клиент / слушатель'}
-            </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {user?.role === 'ADMIN'
+                ? 'Администратор'
+                : user?.role === 'METHODIST'
+                  ? 'Методист'
+                  : user?.role === 'TEACHER'
+                    ? 'Преподаватель'
+                    : 'Клиент / слушатель'}
+              </Typography>
           </Box>
         </Stack>
       </Paper>
@@ -491,6 +546,10 @@ function DashboardPage() {
         <MetricCard title="Клиенты" value={summary?.totalClients ?? 0} />
         <MetricCard title="Преподаватели" value={summary?.totalTeachers ?? 0} />
         <MetricCard title="Курсы" value={summary?.totalCourses ?? 0} />
+        <MetricCard title="Программы" value={summary?.totalPrograms ?? 0} />
+        <MetricCard title="Лекции" value={summary?.totalLessons ?? 0} />
+        <MetricCard title="Тесты" value={summary?.totalTests ?? 0} />
+        <MetricCard title="Попытки" value={summary?.totalAttempts ?? 0} />
         <MetricCard title="Активные записи" value={summary?.activeEnrollments ?? 0} />
         <MetricCard title="Напоминания" value={summary?.upcomingRepeats ?? 0} />
       </Grid>
@@ -500,7 +559,9 @@ function DashboardPage() {
           <SectionTitle title="Сценарий работы" subtitle="Клиентская база, курсы и повторное обучение" />
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <InfoCard title="Курсы" text="Список программ с периодом повторного обучения и форматом занятий." />
+            <InfoCard title="Программы" text="Структура обучения внутри курса: программы, лекции и тесты." />
             <InfoCard title="Записи" text="Связь клиента, курса и преподавателя с датой следующего обучения." />
+            <InfoCard title="Тесты" text="Проверка знаний с ограничением попыток и проходным баллом." />
             <InfoCard title="Уведомления" text="Автоматическая рассылка email-напоминаний о повторном обучении." />
           </Grid>
         </CardContent>
@@ -597,6 +658,7 @@ function UsersPage() {
               options: [
                 { value: 'ALL', label: 'Все роли' },
                 { value: 'ADMIN', label: 'Администратор' },
+                { value: 'METHODIST', label: 'Методист' },
                 { value: 'TEACHER', label: 'Преподаватель' },
                 { value: 'CLIENT', label: 'Клиент / слушатель' },
               ],
@@ -782,8 +844,21 @@ function UserFormPage({ mode }) {
                 onChange={(event) => setForm({ ...form, role: event.target.value })}
               >
                 <MenuItem value="ADMIN">Администратор</MenuItem>
+                <MenuItem value="METHODIST">Методист</MenuItem>
                 <MenuItem value="TEACHER">Преподаватель</MenuItem>
                 <MenuItem value="CLIENT">Клиент / слушатель</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Статус"
+                fullWidth
+                value={String(form.active)}
+                onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+              >
+                <MenuItem value="true">Активен</MenuItem>
+                <MenuItem value="false">Неактивен</MenuItem>
               </TextField>
             </Grid>
           </Grid>
@@ -915,6 +990,7 @@ function CoursesPage() {
                 <TableCell>Курс</TableCell>
                 <TableCell>Формат</TableCell>
                 <TableCell>Повтор</TableCell>
+                <TableCell>Программы</TableCell>
                 <TableCell>Статус</TableCell>
                 <TableCell>Записей</TableCell>
                 {isAdmin && <TableCell align="right">Действия</TableCell>}
@@ -934,6 +1010,7 @@ function CoursesPage() {
                   </TableCell>
                   <TableCell>{course.trainingFormat}</TableCell>
                   <TableCell>{course.repeatMonths} мес.</TableCell>
+                  <TableCell>{course.programCount}</TableCell>
                   <TableCell>
                     <Chip size="small" label={course.active ? 'Активен' : 'Неактивен'} color={course.active ? 'success' : 'default'} variant="outlined" />
                   </TableCell>
@@ -1049,12 +1126,1489 @@ function CourseFormPage({ mode }) {
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
               />
             </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                label="Статус"
+                fullWidth
+                value={String(form.active)}
+                onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+              >
+                <MenuItem value="true">Активен</MenuItem>
+                <MenuItem value="false">Неактивен</MenuItem>
+              </TextField>
+            </Grid>
           </Grid>
           <Stack direction="row" spacing={2}>
             <Button type="submit" variant="contained" disabled={busy}>
               {isEdit ? 'Сохранить' : 'Создать'}
             </Button>
             <Button variant="outlined" onClick={() => navigate('/courses')}>
+              Отмена
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProgramsPage() {
+  const { user, dashboard, token, navigate, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
+  const programs = useMemo(() => dashboard?.programs || [], [dashboard]);
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const [query, setQuery] = useState('');
+  const [courseFilter, setCourseFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('position');
+
+  const filteredPrograms = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return [...programs]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [item.title, item.description, item.course?.title]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesCourse = courseFilter === 'ALL' || String(item.course?.id) === courseFilter;
+        const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? item.active : !item.active);
+        return matchesQuery && matchesCourse && matchesStatus;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'course':
+            return String(left.course?.title || '').localeCompare(String(right.course?.title || ''), 'ru');
+          case 'lessons':
+            return Number(right.lessonCount || 0) - Number(left.lessonCount || 0);
+          case 'tests':
+            return Number(right.testCount || 0) - Number(left.testCount || 0);
+          default:
+            return Number(left.position || 0) - Number(right.position || 0);
+        }
+      });
+  }, [programs, query, courseFilter, statusFilter, sortBy]);
+
+  async function handleDelete(id) {
+    setBusy(true);
+    try {
+      await api.deleteProgram(token, id);
+      await refreshWorkspace();
+      notify('Программа удалена', 'success');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+          <SectionTitle title="Программы" subtitle="Структура обучения внутри курса" />
+          {isManager && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/programs/new')}>
+              Добавить программу
+            </Button>
+          )}
+        </Stack>
+
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Название, описание, курс"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'position', label: 'Сортировка: по позиции' },
+            { value: 'course', label: 'Сортировка: по курсу' },
+            { value: 'lessons', label: 'Сортировка: по числу лекций' },
+            { value: 'tests', label: 'Сортировка: по числу тестов' },
+          ]}
+          filters={[
+            {
+              value: courseFilter,
+              onChange: setCourseFilter,
+              label: 'Курс',
+              options: [
+                { value: 'ALL', label: 'Все курсы' },
+                ...(dashboard?.courses || []).map((course) => ({ value: String(course.id), label: course.title })),
+              ],
+            },
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'Активные' },
+                { value: 'INACTIVE', label: 'Неактивные' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredPrograms.length} из {programs.length}
+        </Typography>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Программа</TableCell>
+                <TableCell>Курс</TableCell>
+                <TableCell>Позиция</TableCell>
+                <TableCell>Лекции</TableCell>
+                <TableCell>Тесты</TableCell>
+                <TableCell>Статус</TableCell>
+                {isManager && <TableCell align="right">Действия</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredPrograms.map((item) => (
+                <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/programs/${item.id}`)}>
+                  <TableCell>
+                    <Typography variant="subtitle2">{item.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{item.description}</Typography>
+                  </TableCell>
+                  <TableCell>{item.course?.title}</TableCell>
+                  <TableCell>{item.position}</TableCell>
+                  <TableCell>{item.lessonCount}</TableCell>
+                  <TableCell>{item.testCount}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={item.active ? 'Активна' : 'Неактивна'} color={item.active ? 'success' : 'default'} variant="outlined" />
+                  </TableCell>
+                  {isManager && (
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/programs/${item.id}`); }}>
+                          Открыть
+                        </Button>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/programs/${item.id}/edit`); }}>
+                          Редактировать
+                        </Button>
+                        <Button size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDelete(item.id); }} disabled={busy}>
+                          Удалить
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProgramDetailPage() {
+  const { id } = useParams();
+  const { dashboard, navigate, user } = useOutletContext();
+  const selectedProgram = dashboard?.programs?.find((item) => String(item.id) === id);
+  const relatedLessons = (dashboard?.lessons || []).filter((item) => String(item.program?.id) === String(id));
+  const relatedTests = (dashboard?.tests || []).filter((item) => String(item.program?.id) === String(id));
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+
+  if (!selectedProgram) {
+    return <Alert severity="error">Программа не найдена.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedProgram.title}
+        subtitle="Подробная карточка программы"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/programs')}>
+              Назад к списку
+            </Button>
+            {isManager && (
+              <Button variant="contained" onClick={() => navigate(`/programs/${selectedProgram.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Данные программы" subtitle="Все доступные сведения">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedProgram.id} />
+          <DetailField label="Курс" value={selectedProgram.course?.title} />
+          <DetailField label="Позиция" value={selectedProgram.position} />
+          <DetailField label="Статус" value={<Chip size="small" label={selectedProgram.active ? 'Активна' : 'Неактивна'} color={selectedProgram.active ? 'success' : 'default'} variant="outlined" />} />
+          <DetailField label="Лекций" value={selectedProgram.lessonCount} />
+          <DetailField label="Тестов" value={selectedProgram.testCount} />
+          <DetailField label="Описание" value={selectedProgram.description || 'Не указано'} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Лекции" subtitle="Страницы программы">
+        <Stack spacing={2}>
+          {relatedLessons.length === 0 ? (
+            <Alert severity="info">Лекций пока нет.</Alert>
+          ) : (
+            relatedLessons.map((lesson) => (
+              <Paper key={lesson.id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }} onClick={() => navigate(`/lessons/${lesson.id}`)}>
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{lesson.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{lesson.body}</Typography>
+                  </Box>
+                  <Chip size="small" label={`Позиция ${lesson.position}`} variant="outlined" />
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Тесты" subtitle="Проверка знаний в рамках программы">
+        <Stack spacing={2}>
+          {relatedTests.length === 0 ? (
+            <Alert severity="info">Тестов пока нет.</Alert>
+          ) : (
+            relatedTests.map((test) => (
+              <Paper key={test.id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }} onClick={() => navigate(`/tests/${test.id}`)}>
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{test.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Проходной балл: {test.passScore} · Попыток: {test.attemptCount}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={test.bestPassed ? `Лучший результат: ${test.bestScore}` : `Лучший результат: ${test.bestScore}`} variant="outlined" />
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function ProgramFormPage({ mode }) {
+  const { id } = useParams();
+  const { dashboard, token, busy, setBusy, refreshWorkspace, notify, navigate, user } = useOutletContext();
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const isEdit = mode === 'edit';
+  const existing = dashboard?.programs?.find((item) => String(item.id) === id);
+  const [form, setForm] = useState(emptyProgramForm);
+
+  useEffect(() => {
+    if (isEdit && existing) {
+      setForm({
+        courseId: String(existing.course?.id || ''),
+        title: existing.title || '',
+        description: existing.description || '',
+        position: existing.position || 1,
+        active: existing.active ?? true,
+      });
+    }
+  }, [isEdit, existing]);
+
+  if (!isManager) {
+    return <Alert severity="warning">Создание и редактирование программ доступно только администратору и методисту.</Alert>;
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const payload = {
+        courseId: Number(form.courseId),
+        title: form.title,
+        description: form.description,
+        position: Number(form.position),
+        active: form.active === true || form.active === 'true',
+      };
+      if (isEdit) {
+        await api.updateProgram(token, id, payload);
+        notify('Программа обновлена', 'success');
+      } else {
+        await api.createProgram(token, payload);
+        notify('Программа создана', 'success');
+      }
+      await refreshWorkspace();
+      navigate('/programs', { replace: true });
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <SectionTitle title={isEdit ? 'Редактирование программы' : 'Новая программа'} subtitle="Отдельная страница формы" />
+        <Stack component="form" spacing={2} sx={{ mt: 2 }} onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Курс"
+                fullWidth
+                value={form.courseId}
+                onChange={(event) => setForm({ ...form, courseId: event.target.value })}
+              >
+                <MenuItem value="">Выберите курс</MenuItem>
+                {(dashboard?.courses || []).map((course) => (
+                  <MenuItem key={course.id} value={course.id}>
+                    {course.title}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Позиция"
+                type="number"
+                fullWidth
+                value={form.position}
+                onChange={(event) => setForm({ ...form, position: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Название"
+                fullWidth
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Статус"
+                fullWidth
+                value={String(form.active)}
+                onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+              >
+                <MenuItem value="true">Активна</MenuItem>
+                <MenuItem value="false">Неактивна</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Описание"
+                fullWidth
+                multiline
+                minRows={4}
+                value={form.description}
+                onChange={(event) => setForm({ ...form, description: event.target.value })}
+              />
+            </Grid>
+          </Grid>
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" disabled={busy}>
+              {isEdit ? 'Сохранить' : 'Создать'}
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/programs')}>
+              Отмена
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LessonsPage() {
+  const { user, dashboard, token, navigate, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
+  const lessons = useMemo(() => dashboard?.lessons || [], [dashboard]);
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const [query, setQuery] = useState('');
+  const [programFilter, setProgramFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('position');
+
+  const filteredLessons = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return [...lessons]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [item.title, item.body, item.program?.title]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesProgram = programFilter === 'ALL' || String(item.program?.id) === programFilter;
+        const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? item.active : !item.active);
+        return matchesQuery && matchesProgram && matchesStatus;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'program':
+            return String(left.program?.title || '').localeCompare(String(right.program?.title || ''), 'ru');
+          default:
+            return Number(left.position || 0) - Number(right.position || 0);
+        }
+      });
+  }, [lessons, query, programFilter, statusFilter, sortBy]);
+
+  async function handleDelete(id) {
+    setBusy(true);
+    try {
+      await api.deleteLesson(token, id);
+      await refreshWorkspace();
+      notify('Лекция удалена', 'success');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+          <SectionTitle title="Лекции" subtitle="Текстовые материалы внутри программ" />
+          {isManager && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/lessons/new')}>
+              Добавить лекцию
+            </Button>
+          )}
+        </Stack>
+
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Название, текст, программа"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'position', label: 'Сортировка: по позиции' },
+            { value: 'program', label: 'Сортировка: по программе' },
+          ]}
+          filters={[
+            {
+              value: programFilter,
+              onChange: setProgramFilter,
+              label: 'Программа',
+              options: [
+                { value: 'ALL', label: 'Все программы' },
+                ...(dashboard?.programs || []).map((program) => ({ value: String(program.id), label: program.title })),
+              ],
+            },
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'Активные' },
+                { value: 'INACTIVE', label: 'Неактивные' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredLessons.length} из {lessons.length}
+        </Typography>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Лекция</TableCell>
+                <TableCell>Программа</TableCell>
+                <TableCell>Позиция</TableCell>
+                <TableCell>Тест</TableCell>
+                <TableCell>Статус</TableCell>
+                {isManager && <TableCell align="right">Действия</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredLessons.map((item) => (
+                <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/lessons/${item.id}`)}>
+                  <TableCell>
+                    <Typography variant="subtitle2">{item.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{item.body}</Typography>
+                  </TableCell>
+                  <TableCell>{item.program?.title}</TableCell>
+                  <TableCell>{item.position}</TableCell>
+                  <TableCell>{item.testCount}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={item.active ? 'Активна' : 'Неактивна'} color={item.active ? 'success' : 'default'} variant="outlined" />
+                  </TableCell>
+                  {isManager && (
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/lessons/${item.id}`); }}>
+                          Открыть
+                        </Button>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/lessons/${item.id}/edit`); }}>
+                          Редактировать
+                        </Button>
+                        <Button size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDelete(item.id); }} disabled={busy}>
+                          Удалить
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LessonDetailPage() {
+  const { id } = useParams();
+  const { dashboard, navigate, user } = useOutletContext();
+  const selectedLesson = dashboard?.lessons?.find((item) => String(item.id) === id);
+  const relatedTest = (dashboard?.tests || []).find((item) => String(item.lesson?.id) === String(id));
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+
+  if (!selectedLesson) {
+    return <Alert severity="error">Лекция не найдена.</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={selectedLesson.title}
+        subtitle="Подробная карточка лекции"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/lessons')}>
+              Назад к списку
+            </Button>
+            {isManager && (
+              <Button variant="contained" onClick={() => navigate(`/lessons/${selectedLesson.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Текст лекции" subtitle="Все доступные данные">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={selectedLesson.id} />
+          <DetailField label="Программа" value={selectedLesson.program?.title} />
+          <DetailField label="Позиция" value={selectedLesson.position} />
+          <DetailField label="Статус" value={<Chip size="small" label={selectedLesson.active ? 'Активна' : 'Неактивна'} color={selectedLesson.active ? 'success' : 'default'} variant="outlined" />} />
+          <Grid item xs={12}>
+            <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'grey.50' }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>Содержание</Typography>
+              <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>{selectedLesson.body || 'Текст не указан'}</Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Связанный тест" subtitle="Контроль знаний по лекции">
+        {relatedTest ? (
+          <Paper variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }} onClick={() => navigate(`/tests/${relatedTest.id}`)}>
+            <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+              <Box>
+                <Typography sx={{ fontWeight: 700 }}>{relatedTest.title}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Проходной балл: {relatedTest.passScore} · Попыток: {relatedTest.attemptCount}
+                </Typography>
+              </Box>
+              <Button variant="outlined" onClick={(event) => { event.stopPropagation(); navigate(`/tests/${relatedTest.id}`); }}>
+                Открыть тест
+              </Button>
+            </Stack>
+          </Paper>
+        ) : (
+          <Alert severity="info">К этой лекции пока не привязан тест.</Alert>
+        )}
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function LessonFormPage({ mode }) {
+  const { id } = useParams();
+  const { dashboard, token, busy, setBusy, refreshWorkspace, notify, navigate, user } = useOutletContext();
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const isEdit = mode === 'edit';
+  const existing = dashboard?.lessons?.find((item) => String(item.id) === id);
+  const [form, setForm] = useState(emptyLessonForm);
+
+  useEffect(() => {
+    if (isEdit && existing) {
+      setForm({
+        programId: String(existing.program?.id || ''),
+        title: existing.title || '',
+        body: existing.body || '',
+        position: existing.position || 1,
+        active: existing.active ?? true,
+      });
+    }
+  }, [isEdit, existing]);
+
+  if (!isManager) {
+    return <Alert severity="warning">Создание и редактирование лекций доступно только администратору и методисту.</Alert>;
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const payload = {
+        programId: Number(form.programId),
+        title: form.title,
+        body: form.body,
+        position: Number(form.position),
+        active: form.active === true || form.active === 'true',
+      };
+      if (isEdit) {
+        await api.updateLesson(token, id, payload);
+        notify('Лекция обновлена', 'success');
+      } else {
+        await api.createLesson(token, payload);
+        notify('Лекция создана', 'success');
+      }
+      await refreshWorkspace();
+      navigate('/lessons', { replace: true });
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <SectionTitle title={isEdit ? 'Редактирование лекции' : 'Новая лекция'} subtitle="Отдельная страница формы" />
+        <Stack component="form" spacing={2} sx={{ mt: 2 }} onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Программа"
+                fullWidth
+                value={form.programId}
+                onChange={(event) => setForm({ ...form, programId: event.target.value })}
+              >
+                <MenuItem value="">Выберите программу</MenuItem>
+                {(dashboard?.programs || []).map((program) => (
+                  <MenuItem key={program.id} value={program.id}>
+                    {program.title}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Позиция"
+                type="number"
+                fullWidth
+                value={form.position}
+                onChange={(event) => setForm({ ...form, position: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Название"
+                fullWidth
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Статус"
+                fullWidth
+                value={String(form.active)}
+                onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+              >
+                <MenuItem value="true">Активна</MenuItem>
+                <MenuItem value="false">Неактивна</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Текст лекции"
+                fullWidth
+                multiline
+                minRows={8}
+                value={form.body}
+                onChange={(event) => setForm({ ...form, body: event.target.value })}
+              />
+            </Grid>
+          </Grid>
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" disabled={busy}>
+              {isEdit ? 'Сохранить' : 'Создать'}
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/lessons')}>
+              Отмена
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TestsPage() {
+  const { user, dashboard, token, navigate, busy, setBusy, refreshWorkspace, notify } = useOutletContext();
+  const tests = useMemo(() => dashboard?.tests || [], [dashboard]);
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const isClient = user?.role === 'CLIENT';
+  const [query, setQuery] = useState('');
+  const [programFilter, setProgramFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('best');
+
+  const filteredTests = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return [...tests]
+      .filter((item) => {
+        const matchesQuery =
+          !normalizedQuery ||
+          [item.title, item.program?.title, item.lesson?.title]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+        const matchesProgram = programFilter === 'ALL' || String(item.program?.id) === programFilter;
+        const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? item.active : !item.active);
+        return matchesQuery && matchesProgram && matchesStatus;
+      })
+      .sort((left, right) => {
+        switch (sortBy) {
+          case 'program':
+            return String(left.program?.title || '').localeCompare(String(right.program?.title || ''), 'ru');
+          case 'score':
+            return Number(right.passScore || 0) - Number(left.passScore || 0);
+          case 'questions':
+            return Number(right.questionCount || 0) - Number(left.questionCount || 0);
+          default:
+            return Number(right.bestScore || 0) - Number(left.bestScore || 0);
+        }
+      });
+  }, [tests, query, programFilter, statusFilter, sortBy]);
+
+  async function handleDelete(id) {
+    setBusy(true);
+    try {
+      await api.deleteTest(token, id);
+      await refreshWorkspace();
+      notify('Тест удалён', 'success');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+          <SectionTitle title="Тесты" subtitle="Контроль знаний и попытки прохождения" />
+          {isManager && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/tests/new')}>
+              Добавить тест
+            </Button>
+          )}
+        </Stack>
+
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          queryLabel="Поиск"
+          queryPlaceholder="Название, программа, лекция"
+          sortValue={sortBy}
+          onSortChange={setSortBy}
+          sortOptions={[
+            { value: 'best', label: 'Сортировка: по лучшему результату' },
+            { value: 'program', label: 'Сортировка: по программе' },
+            { value: 'score', label: 'Сортировка: по проходному баллу' },
+            { value: 'questions', label: 'Сортировка: по числу вопросов' },
+          ]}
+          filters={[
+            {
+              value: programFilter,
+              onChange: setProgramFilter,
+              label: 'Программа',
+              options: [
+                { value: 'ALL', label: 'Все программы' },
+                ...(dashboard?.programs || []).map((program) => ({ value: String(program.id), label: program.title })),
+              ],
+            },
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              label: 'Статус',
+              options: [
+                { value: 'ALL', label: 'Все статусы' },
+                { value: 'ACTIVE', label: 'Активные' },
+                { value: 'INACTIVE', label: 'Неактивные' },
+              ],
+            },
+          ]}
+        />
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Найдено: {filteredTests.length} из {tests.length}
+        </Typography>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Тест</TableCell>
+                <TableCell>Программа</TableCell>
+                <TableCell>Лекция</TableCell>
+                <TableCell>Вопросы</TableCell>
+                <TableCell>Попытки</TableCell>
+                <TableCell>Проходной балл</TableCell>
+                <TableCell>Статус</TableCell>
+                {isManager && <TableCell align="right">Действия</TableCell>}
+                {!isManager && isClient && <TableCell align="right">Действия</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredTests.map((item) => (
+                <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/tests/${item.id}`)}>
+                  <TableCell>
+                    <Typography variant="subtitle2">{item.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Лучший результат: {item.bestScore} {item.bestPassed ? '(пройден)' : ''}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{item.program?.title}</TableCell>
+                  <TableCell>{item.lesson?.title}</TableCell>
+                  <TableCell>{item.questionCount}</TableCell>
+                  <TableCell>{item.attemptCount}</TableCell>
+                  <TableCell>{item.passScore}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={item.active ? 'Активен' : 'Неактивен'} color={item.active ? 'success' : 'default'} variant="outlined" />
+                  </TableCell>
+                  {isManager && (
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/tests/${item.id}`); }}>
+                          Открыть
+                        </Button>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/tests/${item.id}/edit`); }}>
+                          Редактировать
+                        </Button>
+                        <Button size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDelete(item.id); }} disabled={busy}>
+                          Удалить
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  )}
+                  {!isManager && isClient && (
+                    <TableCell align="right">
+                      <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/tests/${item.id}`); }}>
+                        Пройти
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TestDetailPage() {
+  const { id } = useParams();
+  const { token, dashboard, navigate, user } = useOutletContext();
+  const [detail, setDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingDetail(true);
+    api.test(token, id)
+      .then((response) => {
+        if (active) {
+          setDetail(response);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDetail(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingDetail(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, token]);
+
+  const fallback = dashboard?.tests?.find((item) => String(item.id) === id);
+  const test = detail?.test || fallback;
+  const questions = detail?.questions || [];
+  const attempts = detail?.attempts || [];
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const canTake = user?.role === 'CLIENT' && test?.active && attempts.length < (test?.maxAttempts ?? 0);
+
+  if (!test) {
+    return <Alert severity="error">{loadingDetail ? 'Загрузка теста...' : 'Тест не найден'}</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={test.title}
+        subtitle="Подробная карточка теста"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate('/tests')}>
+              Назад к списку
+            </Button>
+            {isManager && (
+              <Button variant="contained" onClick={() => navigate(`/tests/${test.id}/edit`)}>
+                Редактировать
+              </Button>
+            )}
+            {canTake && (
+              <Button variant="contained" color="secondary" onClick={() => navigate(`/tests/${test.id}/take`)}>
+                Пройти тест
+              </Button>
+            )}
+          </Stack>
+        }
+      />
+
+      <DetailSection title="Параметры теста" subtitle="Проходной балл, попытки и привязка">
+        <Grid container spacing={2}>
+          <DetailField label="ID" value={test.id} />
+          <DetailField label="Программа" value={test.program?.title} />
+          <DetailField label="Лекция" value={test.lesson?.title} />
+          <DetailField label="Проходной балл" value={test.passScore} />
+          <DetailField label="Макс. попыток" value={test.maxAttempts} />
+          <DetailField label="Вопросов" value={test.questionCount} />
+          <DetailField label="Попыток" value={test.attemptCount} />
+          <DetailField label="Лучший результат" value={test.bestScore} />
+          <DetailField label="Статус" value={<Chip size="small" label={test.active ? 'Активен' : 'Неактивен'} color={test.active ? 'success' : 'default'} variant="outlined" />} />
+        </Grid>
+      </DetailSection>
+
+      <DetailSection title="Вопросы" subtitle="Список вопросов и вариантов ответа">
+        <Stack spacing={2}>
+          {questions.length === 0 ? (
+            <Alert severity="info">В тесте пока нет вопросов.</Alert>
+          ) : (
+            questions.map((question) => (
+              <Paper key={question.id} variant="outlined" sx={{ p: 2 }}>
+                <Typography sx={{ fontWeight: 700 }}>{question.position}. {question.questionText}</Typography>
+                <Stack spacing={1} sx={{ mt: 1 }}>
+                  {question.options.map((option) => (
+                    <Chip
+                      key={option.id}
+                      label={option.text}
+                      color={option.correct ? 'success' : 'default'}
+                      variant={option.correct ? 'filled' : 'outlined'}
+                      sx={{ width: 'fit-content' }}
+                    />
+                  ))}
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+
+      <DetailSection title="Попытки" subtitle="История прохождения теста">
+        <Stack spacing={2}>
+          {attempts.length === 0 ? (
+            <Alert severity="info">Попыток пока нет.</Alert>
+          ) : (
+            attempts.map((attempt) => (
+              <Paper key={attempt.id} variant="outlined" sx={{ p: 2 }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      Попытка #{attempt.attemptNo} · {attempt.client?.fullName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Результат: {attempt.score} из {attempt.maxScore} · {attempt.passed ? 'Пройден' : 'Не пройден'}
+                    </Typography>
+                  </Box>
+                  <Typography color="text.secondary">{formatDateTime(attempt.takenAt)}</Typography>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+      </DetailSection>
+    </Stack>
+  );
+}
+
+function TestTakePage() {
+  const { id } = useParams();
+  const { token, navigate, notify, refreshWorkspace } = useOutletContext();
+  const [detail, setDetail] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    api.test(token, id)
+      .then((response) => {
+        if (active) {
+          setDetail(response);
+          setAnswers({});
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          notify(error);
+          navigate('/tests', { replace: true });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, token, navigate, notify]);
+
+  const test = detail?.test;
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const payload = {
+        answers: Object.entries(answers)
+          .filter(([, optionId]) => optionId)
+          .map(([questionId, optionId]) => ({ questionId: Number(questionId), optionId: Number(optionId) })),
+      };
+      const response = await api.submitTestAttempt(token, id, payload);
+      setResult(response);
+      await refreshWorkspace();
+      notify(`Результат: ${response.score} из ${response.maxScore}`, response.passed ? 'success' : 'error');
+    } catch (error) {
+      notify(error);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!test) {
+    return <Alert severity="info">Загрузка теста...</Alert>;
+  }
+
+  return (
+    <Stack spacing={3}>
+      <DetailHeader
+        title={`Прохождение теста: ${test.title}`}
+        subtitle="Выбирай ответы и отправляй результат"
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Button variant="outlined" onClick={() => navigate(`/tests/${test.id}`)}>
+              Назад к тесту
+            </Button>
+          </Stack>
+        }
+      />
+
+      {result && (
+        <Alert severity={result.passed ? 'success' : 'warning'}>
+          Попытка #{result.attemptNo} сохранена. Результат: {result.score} из {result.maxScore}. {result.passed ? 'Тест пройден.' : 'Тест не пройден.'}
+        </Alert>
+      )}
+
+      <Paper elevation={0} sx={{ p: 3, border: 1, borderColor: 'divider' }}>
+        <Stack component="form" spacing={2} onSubmit={handleSubmit}>
+          {detail.questions.map((question) => (
+            <Paper key={question.id} variant="outlined" sx={{ p: 2 }}>
+              <FormControl fullWidth>
+                <FormLabel sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>
+                  {question.position}. {question.questionText}
+                </FormLabel>
+                <RadioGroup
+                  value={answers[question.id] || ''}
+                  onChange={(event) => setAnswers((prev) => ({ ...prev, [question.id]: event.target.value }))}
+                >
+                  {question.options.map((option) => (
+                    <FormControlLabel
+                      key={option.id}
+                      value={String(option.id)}
+                      control={<Radio />}
+                      label={option.text}
+                    />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+            </Paper>
+          ))}
+
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" disabled={submitting}>
+              Отправить
+            </Button>
+            <Button variant="outlined" onClick={() => navigate(`/tests/${test.id}`)}>
+              Отмена
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+    </Stack>
+  );
+}
+
+function TestFormPage({ mode }) {
+  const { id } = useParams();
+  const { dashboard, token, busy, setBusy, refreshWorkspace, notify, navigate, user } = useOutletContext();
+  const isManager = user?.role === 'ADMIN' || user?.role === 'METHODIST';
+  const isEdit = mode === 'edit';
+  const existing = dashboard?.tests?.find((item) => String(item.id) === id);
+  const [form, setForm] = useState(emptyTestForm);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      if (!isEdit || !existing) {
+        return;
+      }
+      try {
+        const detail = await api.test(token, id);
+        if (!active) {
+          return;
+        }
+        setForm({
+          programId: String(detail.test.program?.id || ''),
+          lessonId: String(detail.test.lesson?.id || ''),
+          title: detail.test.title || '',
+          passScore: detail.test.passScore || 1,
+          maxAttempts: detail.test.maxAttempts || 1,
+          active: detail.test.active ?? true,
+          questions: detail.questions.map((question) => ({
+            questionText: question.questionText,
+            position: question.position,
+            options: question.options.map((option) => ({
+              text: option.text,
+              correct: option.correct,
+              position: option.position,
+            })),
+          })),
+        });
+      } catch (error) {
+        notify(error);
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, [isEdit, existing, id, token, notify]);
+
+  if (!isManager) {
+    return <Alert severity="warning">Создание и редактирование тестов доступно только администратору и методисту.</Alert>;
+  }
+
+  function addQuestion() {
+    setForm((prev) => ({
+      ...prev,
+      questions: [
+        ...(prev.questions || []),
+        {
+          questionText: '',
+          position: (prev.questions || []).length + 1,
+          options: [
+            { text: '', correct: true, position: 1 },
+            { text: '', correct: false, position: 2 },
+          ],
+        },
+      ],
+    }));
+  }
+
+  function updateQuestion(questionIndex, field, value) {
+    setForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((question, index) => (index === questionIndex ? { ...question, [field]: value } : question)),
+    }));
+  }
+
+  function removeQuestion(questionIndex) {
+    setForm((prev) => ({
+      ...prev,
+      questions: prev.questions.filter((_, index) => index !== questionIndex),
+    }));
+  }
+
+  function addOption(questionIndex) {
+    setForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((question, index) =>
+        index === questionIndex
+          ? {
+              ...question,
+              options: [
+                ...question.options,
+                { text: '', correct: false, position: question.options.length + 1 },
+              ],
+            }
+          : question
+      ),
+    }));
+  }
+
+  function updateOption(questionIndex, optionIndex, field, value) {
+    setForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((question, index) =>
+        index === questionIndex
+          ? {
+              ...question,
+              options: question.options.map((option, optIndex) =>
+                optIndex === optionIndex ? { ...option, [field]: value } : option
+              ),
+            }
+          : question
+      ),
+    }));
+  }
+
+  function removeOption(questionIndex, optionIndex) {
+    setForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((question, index) =>
+        index === questionIndex
+          ? { ...question, options: question.options.filter((_, optIndex) => optIndex !== optionIndex) }
+          : question
+      ),
+    }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const payload = {
+        programId: Number(form.programId),
+        lessonId: Number(form.lessonId),
+        title: form.title,
+        passScore: Number(form.passScore),
+        maxAttempts: Number(form.maxAttempts),
+        active: form.active === true || form.active === 'true',
+        questions: form.questions.map((question, index) => ({
+          questionText: question.questionText,
+          position: Number(question.position || index + 1),
+          options: question.options.map((option, optIndex) => ({
+            text: option.text,
+            correct: option.correct === true || option.correct === 'true',
+            position: Number(option.position || optIndex + 1),
+          })),
+        })),
+      };
+      if (isEdit) {
+        await api.updateTest(token, id, payload);
+        notify('Тест обновлён', 'success');
+      } else {
+        await api.createTest(token, payload);
+        notify('Тест создан', 'success');
+      }
+      await refreshWorkspace();
+      navigate('/tests', { replace: true });
+    } catch (error) {
+      notify(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+      <CardContent>
+        <SectionTitle title={isEdit ? 'Редактирование теста' : 'Новый тест'} subtitle="Форма с вопросами и вариантами ответа" />
+        <Stack component="form" spacing={2} sx={{ mt: 2 }} onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Программа"
+                fullWidth
+                value={form.programId}
+                onChange={(event) => {
+                  const programId = event.target.value;
+                  const firstLesson = (dashboard?.lessons || []).find((lesson) => String(lesson.program?.id) === String(programId));
+                  setForm((prev) => ({ ...prev, programId, lessonId: firstLesson ? String(firstLesson.id) : '' }));
+                }}
+              >
+                <MenuItem value="">Выберите программу</MenuItem>
+                {(dashboard?.programs || []).map((program) => (
+                  <MenuItem key={program.id} value={program.id}>
+                    {program.title}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Лекция"
+                fullWidth
+                value={form.lessonId}
+                onChange={(event) => setForm({ ...form, lessonId: event.target.value })}
+              >
+                <MenuItem value="">Выберите лекцию</MenuItem>
+                {(dashboard?.lessons || [])
+                  .filter((lesson) => !form.programId || String(lesson.program?.id) === String(form.programId))
+                  .map((lesson) => (
+                    <MenuItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Название"
+                fullWidth
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Проходной балл"
+                type="number"
+                fullWidth
+                value={form.passScore}
+                onChange={(event) => setForm({ ...form, passScore: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Попыток"
+                type="number"
+                fullWidth
+                value={form.maxAttempts}
+                onChange={(event) => setForm({ ...form, maxAttempts: event.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Статус"
+                fullWidth
+                value={String(form.active)}
+                onChange={(event) => setForm({ ...form, active: event.target.value === 'true' })}
+              >
+                <MenuItem value="true">Активен</MenuItem>
+                <MenuItem value="false">Неактивен</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
+
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Вопросы</Typography>
+              <Button startIcon={<AddIcon />} variant="outlined" onClick={addQuestion}>
+                Добавить вопрос
+              </Button>
+            </Stack>
+
+            <Stack spacing={2}>
+              {form.questions.map((question, questionIndex) => (
+                <Paper key={questionIndex} variant="outlined" sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="center">
+                      <Typography sx={{ fontWeight: 700 }}>Вопрос #{questionIndex + 1}</Typography>
+                      <Button color="error" startIcon={<DeleteIcon />} onClick={() => removeQuestion(questionIndex)}>
+                        Удалить вопрос
+                      </Button>
+                    </Stack>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={8}>
+                        <TextField
+                          label="Текст вопроса"
+                          fullWidth
+                          value={question.questionText}
+                          onChange={(event) => updateQuestion(questionIndex, 'questionText', event.target.value)}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          label="Позиция"
+                          type="number"
+                          fullWidth
+                          value={question.position}
+                          onChange={(event) => updateQuestion(questionIndex, 'position', event.target.value)}
+                        />
+                      </Grid>
+                    </Grid>
+
+                    <Stack spacing={1.5}>
+                      {question.options.map((option, optionIndex) => (
+                        <Grid container spacing={1} key={optionIndex} alignItems="center">
+                          <Grid item xs={12} md={5}>
+                            <TextField
+                              label={`Вариант ${optionIndex + 1}`}
+                              fullWidth
+                              value={option.text}
+                              onChange={(event) => updateOption(questionIndex, optionIndex, 'text', event.target.value)}
+                            />
+                          </Grid>
+                          <Grid item xs={6} md={2}>
+                            <TextField
+                              label="Позиция"
+                              type="number"
+                              fullWidth
+                              value={option.position}
+                              onChange={(event) => updateOption(questionIndex, optionIndex, 'position', event.target.value)}
+                            />
+                          </Grid>
+                          <Grid item xs={6} md={3}>
+                            <TextField
+                              select
+                              label="Правильный"
+                              fullWidth
+                              value={String(option.correct)}
+                              onChange={(event) => updateOption(questionIndex, optionIndex, 'correct', event.target.value === 'true')}
+                            >
+                              <MenuItem value="true">Да</MenuItem>
+                              <MenuItem value="false">Нет</MenuItem>
+                            </TextField>
+                          </Grid>
+                          <Grid item xs={12} md={2}>
+                            <Button color="error" onClick={() => removeOption(questionIndex, optionIndex)}>
+                              Удалить
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      ))}
+                      <Button startIcon={<AddIcon />} variant="text" onClick={() => addOption(questionIndex)}>
+                        Добавить вариант
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          </Box>
+
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" disabled={busy}>
+              {isEdit ? 'Сохранить' : 'Создать'}
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/tests')}>
               Отмена
             </Button>
           </Stack>
@@ -1742,6 +3296,7 @@ function CourseDetailPage() {
   const { id } = useParams();
   const { dashboard, navigate, user } = useOutletContext();
   const selectedCourse = dashboard?.courses?.find((item) => String(item.id) === id);
+  const relatedPrograms = (dashboard?.programs || []).filter((item) => String(item.course?.id) === String(id));
   const relatedEnrollments = (dashboard?.enrollments || []).filter((item) => String(item.course?.id) === String(id));
   const relatedNotifications = (dashboard?.notifications || []).filter((item) => String(item.course?.id) === String(id));
 
@@ -1775,6 +3330,8 @@ function CourseDetailPage() {
           <DetailField label="Описание" value={selectedCourse.description || 'Не указано'} />
           <DetailField label="Формат" value={selectedCourse.trainingFormat} />
           <DetailField label="Период повторения" value={`${selectedCourse.repeatMonths} мес.`} />
+          <DetailField label="Программ" value={selectedCourse.programCount} />
+          <DetailField label="Активных программ" value={selectedCourse.activeProgramCount} />
           <DetailField
             label="Статус"
             value={<Chip size="small" label={selectedCourse.active ? 'Активен' : 'Неактивен'} color={selectedCourse.active ? 'success' : 'default'} variant="outlined" />}
@@ -1782,6 +3339,31 @@ function CourseDetailPage() {
           <DetailField label="Всего записей" value={selectedCourse.enrollmentCount} />
           <DetailField label="Активных записей" value={selectedCourse.activeEnrollmentCount} />
         </Grid>
+      </DetailSection>
+
+      <DetailSection title="Программы" subtitle="Структура курса">
+        <Stack spacing={2}>
+          {relatedPrograms.length === 0 ? (
+            <Alert severity="info">Программ по курсу нет.</Alert>
+          ) : (
+            relatedPrograms.map((program) => (
+              <Paper
+                key={program.id}
+                variant="outlined"
+                sx={{ p: 2, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                onClick={() => navigate(`/programs/${program.id}`)}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>{program.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{program.description}</Typography>
+                  </Box>
+                  <Chip size="small" label={`Лекций: ${program.lessonCount}, тестов: ${program.testCount}`} variant="outlined" />
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
       </DetailSection>
 
       <DetailSection title="Записи на курс" subtitle="Кто обучается по этой программе">
