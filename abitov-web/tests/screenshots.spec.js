@@ -11,6 +11,8 @@ function ensureOutputDir() {
 async function shot(page, name) {
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible();
+  // Give dashboards and lists time to finish async data loading before capture.
+  await page.waitForTimeout(10000);
   await page.screenshot({ path: path.join(OUTPUT_DIR, name), fullPage: true });
 }
 
